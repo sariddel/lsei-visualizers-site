@@ -1,0 +1,1252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Landed Mass Visualizer — LSEI Scenario Trades</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    /* categorical slots, fixed canonical order (validated adjacency: blue,green,magenta,yellow,aqua,orange) */
+    --c-starship: #2a78d6;
+    --c-mk2:      #008300;
+    --c-mk1:      #e87ba4;
+    --c-argonaut: #eda100;
+    --c-clps:     #1baf7a;
+    --c-clpsh:    #eb6834;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --c-starship: #3987e5;
+      --c-mk2:      #008300;
+      --c-mk1:      #d55181;
+      --c-argonaut: #c98500;
+      --c-clps:     #199e70;
+      --c-clpsh:    #d95926;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+    --c-starship: #3987e5;
+    --c-mk2:      #008300;
+    --c-mk1:      #d55181;
+    --c-argonaut: #c98500;
+    --c-clps:     #199e70;
+    --c-clpsh:    #d95926;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink-1);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 20px clamp(12px, 3vw, 40px) 60px;
+  }
+  h1 { font-size: 24px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; max-width: 72ch; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  button, select, input { font: inherit; color: inherit; }
+  .ghostbtn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 5px 10px; cursor: pointer; color: var(--ink-2);
+  }
+  .ghostbtn:hover { border-color: var(--baseline); color: var(--ink-1); }
+
+  /* ---- controls (one filter row) ---- */
+  .controls { display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: flex-end; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .ctl input[type=number], .ctl select {
+    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 8px; min-width: 90px;
+  }
+  .ctl input[type=range] { width: 200px; accent-color: var(--c-starship); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 6px 12px; cursor: pointer; color: var(--ink-2); }
+  .seg button.on { background: var(--ink-1); color: var(--surface-1); }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .preset { border: 1px solid var(--border); background: none; border-radius: 999px; padding: 5px 12px; cursor: pointer; color: var(--ink-2); }
+  .preset.on { border-color: var(--ink-1); color: var(--ink-1); font-weight: 600; }
+  .preset-desc { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  /* ---- hero ---- */
+  .hero { display: flex; flex-wrap: wrap; gap: 24px 48px; align-items: center; }
+  .hero .big { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .hero .big small { font-size: 20px; font-weight: 600; color: var(--ink-2); }
+  .hero .stat { min-width: 130px; }
+  .hero .stat .v { font-size: 26px; font-weight: 650; }
+  .hero .stat .k { color: var(--muted); font-size: 12px; }
+  .verdict { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 13px; border: 1px solid var(--border); }
+  .verdict.ok  { color: var(--good); }
+  .verdict.bad { color: var(--critical); }
+  .evsplit { flex: 1 1 340px; min-width: 300px; }
+  .evbar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; background: none; margin: 6px 0; }
+  .evbar div { min-width: 3px; }
+  .evkey { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
+  .evhead { font-size: 12px; color: var(--muted); }
+
+  /* ---- tier chips (evidence status — reserved colors, always labeled) ---- */
+  .chip { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; border-radius: 4px; padding: 2px 6px; vertical-align: 1px; }
+  .chip.DEMONSTRATED { background: #2e7d32; color: #fff; }
+  .chip.CONTRACTED   { background: #2f79c7; color: #fff; }
+  .chip.ANNOUNCED    { background: #e8a33d; color: #3a2a00; }
+  .chip.TARGET       { background: #e4711e; color: #fff; }
+  .chip.RISK_ADJUSTED{ background: #c0504d; color: #fff; }
+  .chip.UNVERIFIED   { background: #9e9e9e; color: #fff; }
+
+  /* ---- equivalence cards ---- */
+  .equiv { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .ecard {
+    flex: 1 1 150px; min-width: 150px; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; display: flex; flex-direction: column; gap: 6px; background: var(--page);
+  }
+  .ecard .figwrap { height: 160px; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--baseline); padding-bottom: 0; }
+  .ecard .cnt { font-size: 26px; font-weight: 700; margin-top: 8px; }
+  .ecard .cnt small { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .ecard .nm { font-weight: 600; font-size: 13px; }
+  .ecard .meta { color: var(--muted); font-size: 12px; }
+
+  /* ---- fleet isotype ---- */
+  .fleetrow { padding: 12px 0; border-top: 1px solid var(--grid); }
+  .fleetrow:first-of-type { border-top: 0; }
+  .fleethead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; vertical-align: -1px; }
+  .fleethead .nm { font-weight: 650; }
+  .fleethead .n { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .icongrid { display: flex; flex-wrap: wrap; gap: 3px; }
+  .icongrid svg { display: block; }
+  .unitnote { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .zero { color: var(--muted); font-size: 12px; font-style: italic; }
+
+  /* ---- timeline ---- */
+  .tl-scroll { overflow-x: auto; padding-bottom: 8px; }
+  .tl-inner { display: inline-block; min-width: 100%; }
+  .tl-cols { display: flex; align-items: stretch; gap: 0; height: 380px; }
+  .tl-col {
+    width: 72px; flex: 0 0 72px; display: flex; flex-direction: column; justify-content: flex-end;
+    align-items: center; gap: 2px; padding: 6px 4px 6px; border-left: 1px solid var(--grid);
+    cursor: default; position: relative; height: 100%; border-radius: 0;
+  }
+  .tl-col:hover, .tl-col:focus-visible { background: color-mix(in oklab, var(--ink-1) 5%, transparent); outline: none; }
+  .tl-col .plus { font-size: 11px; color: var(--ink-2); }
+  .tl-col .stack { display: flex; flex-direction: column-reverse; flex-wrap: wrap; align-content: center; max-height: 296px; gap: 2px; }
+  .tl-col .firsts { position: absolute; top: 4px; left: 1px; right: 1px; font-size: 9px; line-height: 1.35; text-align: center; pointer-events: none; }
+  .tl-years { display: flex; border-top: 1px solid var(--baseline); }
+  .tl-year { width: 72px; flex: 0 0 72px; text-align: center; font-size: 12px; color: var(--ink-2); padding: 4px 0 0; font-variant-numeric: tabular-nums; }
+  .tl-year .tons { display: block; font-size: 11px; color: var(--muted); }
+  .tl-year .mark { display: block; font-size: 10px; margin-top: 3px; line-height: 1.5; }
+  .legendrow { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 10px; font-size: 12px; color: var(--ink-2); align-items: flex-end; }
+  .legendrow .lgi { display: inline-block; vertical-align: bottom; margin-right: 4px; }
+  .tl-col svg, .icongrid svg, .legendrow svg, .figwrap svg { filter: drop-shadow(0 1px 1.2px rgba(0,0,0,0.45)); }
+  .legendrow span { white-space: nowrap; }
+  #cumwrap { margin-top: 4px; }
+  #cumsvg { display: block; }
+
+  /* ---- tables ---- */
+  details summary { cursor: pointer; color: var(--ink-2); font-weight: 600; margin-bottom: 8px; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  th, td { padding: 4px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ---- assumptions ---- */
+  .assump table input[type=number] { width: 64px; background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; text-align: right; }
+  .assump td.nm { font-weight: 600; white-space: nowrap; }
+  .assump .note { color: var(--ink-2); font-size: 12px; max-width: 46ch; text-align: left; }
+  .assump td, .assump th { vertical-align: top; }
+  .prov { color: var(--muted); font-size: 12px; margin-top: 14px; max-width: 100ch; }
+
+  /* ---- pinned references panel ---- */
+  #refpanel {
+    position: fixed; right: 16px; top: 64px; z-index: 20; display: none;
+    width: min(440px, 92vw); max-height: 78vh; overflow-y: auto;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+  }
+  #refpanel h3 { margin: 0 0 6px; font-size: 15px; }
+  #refpanel .rv { border-top: 1px solid var(--grid); padding: 9px 0; font-size: 13px; }
+  #refpanel .rv:first-of-type { border-top: 0; }
+  #refpanel .basis { color: var(--ink-2); font-size: 12px; margin: 4px 0 5px; }
+  #refpanel .reflinks { font-size: 12px; line-height: 1.7; }
+  #refpanel .reflinks a { color: var(--c-starship); text-decoration: none; }
+  #refpanel .reflinks a:hover { text-decoration: underline; }
+  .tl-col { cursor: pointer; }
+
+  /* ---- tooltip ---- */
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); max-width: 260px;
+  }
+  #tip .t { font-weight: 700; margin-bottom: 3px; }
+  #tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-2); }
+  #tip .r b { color: var(--ink-1); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>How much is <span id="titleMass">100&nbsp;t</span> on the Moon?</h1>
+    <p class="sub">Turn a landed-mass assumption into a fleet: pick tonnes and a window, and see how many
+    landings of each vehicle that implies, year by year. Defaults are the LSEI scenario-trades study values
+    (risk-adjusted, evidence-tagged) — every number below is editable.</p>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a class="ghostbtn" href="power_architecture_visualizer.html" style="text-decoration:none;display:inline-block">Power architecture →</a>
+    <button class="ghostbtn" id="themeBtn" title="Cycle theme">Theme: auto</button>
+  </div>
+</div>
+
+<section class="card">
+  <div class="controls">
+    <div class="ctl">
+      <label for="mass">Landed mass (t/yr at 2055)</label>
+      <input type="number" id="mass" min="1" max="20000" step="1" value="100">
+    </div>
+    <div class="ctl">
+      <label for="massSlider">&nbsp;</label>
+      <input type="range" id="massSlider" min="0" max="100" value="50" aria-label="Landed mass slider (log scale 1–10,000 t)">
+    </div>
+    <div class="ctl">
+      <label for="y0">From</label>
+      <select id="y0"></select>
+    </div>
+    <div class="ctl">
+      <label for="y1">To (deadline)</label>
+      <select id="y1"></select>
+    </div>
+    <div class="ctl">
+      <label>Pacing</label>
+      <span class="seg" role="group" aria-label="Pacing mode" id="pacingSeg">
+        <button id="modePaced" class="on" title="Land mass continuously across the window — each year carries its capacity share, so smaller vehicles dominate">Steady program</button>
+        <button id="modeMax" title="Fly everything at full cadence until the target is met — front-loaded">As fast as possible</button>
+        <button id="modeJit" title="Defer everything as late as the deadline allows — consolidates onto the biggest vehicles, fewest flights">Fewest flights</button>
+      </span>
+    </div>
+    <div class="ctl">
+      <label>Scenario state (sets mass, window &amp; fleet from the frozen scenarios — edit anything after)</label>
+      <span class="presets" id="presets"></span>
+    </div>
+    <div class="ctl"><label>&nbsp;</label><button class="ghostbtn" id="resetBtn">Reset all</button></div>
+  </div>
+  <div class="preset-desc" id="presetDesc"></div>
+</section>
+
+<section class="card">
+  <h2>Year by year <span style="font-weight:400;font-size:12px;color:var(--muted)">— hover for numbers, click a column for references</span></h2>
+  <div class="legendrow" id="tlLegend"></div>
+  <div class="tl-scroll" id="tlScroll">
+    <div class="tl-inner">
+      <div class="tl-cols" id="tlCols"></div>
+      <div class="tl-years" id="tlYears"></div>
+      <div id="cumwrap"><svg id="cumsvg" role="img" aria-label="Cumulative landed mass by year against the target"></svg></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="hero">
+    <div>
+      <div class="big"><span id="heroMass"></span><small id="heroUnit"> t</small></div>
+      <div class="evhead" id="heroWindow"></div>
+    </div>
+    <div class="stat"><div class="v" id="heroFlights"></div><div class="k">total landings</div></div>
+    <div class="stat"><div class="v" id="heroDone"></div><div class="k">target reached</div></div>
+    <div class="stat"><span class="verdict" id="verdict"></span></div>
+    <div class="evsplit">
+      <div class="evhead" id="evHeadline"></div>
+      <div class="evbar" id="evBar" role="img" aria-label="Share of tonnes by evidence tier of the carrying vehicle"></div>
+      <div class="evkey" id="evKey"></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>If it all flew on one vehicle</h2>
+  <div class="equiv" id="equiv"></div>
+  <div class="unitnote">Silhouettes at true relative height. Counts are landings needed for the full target on that vehicle alone, ignoring availability dates.</div>
+</section>
+
+<section class="card">
+  <h2>Expected fleet mix over the window</h2>
+  <div class="unitnote" id="unitNote"></div>
+  <div id="fleet"></div>
+  <div class="unitnote" id="mixRule"></div>
+</section>
+
+<section class="card">
+  <details>
+    <summary>Table view — flights and tonnes per year <button class="ghostbtn" id="copyBtn" style="margin-left:10px">Copy TSV</button></summary>
+    <div style="overflow-x:auto"><table id="planTable"></table></div>
+  </details>
+</section>
+
+<section class="card assump">
+  <h2>Assumptions (editable)</h2>
+  <div style="overflow-x:auto">
+  <table id="assumpTable">
+    <thead><tr>
+      <th>Vehicle</th><th>On</th><th>Payload (t)</th><th>First landing</th><th>Last</th><th>Max /yr</th><th>Min /yr</th><th>Ramp (yrs)</th><th style="text-align:left">Evidence</th><th style="text-align:left">Basis</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+  <p class="prov">Defaults from the LSEI Scenario Trades workbook research base (driving_assumptions.json / commercial_break.json, verified 2026-07-13; CLPS re-verified against the Moon Base plan of record 2026-07-20):
+  payloads are corporate capacity figures; first-landing years are the study's risk-adjusted judgments [J], not manifest dates
+  (official targets are earlier: MK1 late 2026 → early 2027 after the New Glenn loss of 2026-05-28; Starship commercial cargo "2028" vs NASA OIG's ≥2-year HLS slip and the still-undemonstrated propellant transfer).
+  Moon Base plan of record (nasa.gov/moonbase-phases, page updated 2026-06-11): Phase 1 to 2029 ≈ 4 t across 21 landings (~0.19 t avg); Phase 2 2029–32 up to 60 t across 24 landings (~2.5 t avg, "low, medium and heavy cargo-class landers" — classes not defined in kg anywhere public); Phase 3 2032+ up to 38 t/yr.
+  The $590.4M CLPS awards of 2026-06-30 (Peregrine-2/-3, a Nova-C, a Blue Ghost variant, all late 2028) are all 100–150 kg class. Draper CP-12 was terminated Jul 2025.
+  Cadence caps are study bounds: 2030 rail = 3–4 MK1 flights/yr; S1-2040 ≈ 7 MK2-class or ~2 Starship-class/yr; S3-2040 ≈ 10 Starship/yr; CLPS demonstrated max is 2 landings/yr (Isaacman aspiration: 10/yr from 2027).
+  Each Starship landing additionally implies ~10–16 tanker launches to LEO — the cadence cap you set here is the constraint that number feeds.
+  Scenario-state targets integrate the frozen Scenarios.docx annual-landed-mass rails (10→200/75/1,000 t/yr at 2030→2040) linearly to a 2026–2040 cumulative. This page is a sandbox for visualizing assumptions, not a source.</p>
+</section>
+
+<div id="tip" role="tooltip"></div>
+<div id="refpanel" role="dialog" aria-label="Year references"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Starship HLS: tall cylinder, domed nose, small canards, elevator band -->
+    <symbol id="ic-starship" viewBox="0 0 24 64">
+      <path d="M7 62 V14 Q7 4 12 2 Q17 4 17 14 V62 Z"/>
+      <path d="M7 20 L3 26 L7 26 Z"/><path d="M17 20 L21 26 L17 26 Z"/>
+      <path d="M7 52 L2 62 L7 62 Z"/><path d="M17 52 L22 62 L17 62 Z"/>
+      <circle cx="12" cy="10" r="1.6" fill="var(--surface-1)"/>
+    </symbol>
+    <!-- Blue Moon MK2: cylinder, conical top, four legs -->
+    <symbol id="ic-mk2" viewBox="0 0 24 40">
+      <path d="M8 30 V10 L12 3 L16 10 V30 Z"/>
+      <path d="M8 26 L3 38 L5.5 38 L10 28 Z"/><path d="M16 26 L21 38 L18.5 38 L14 28 Z"/>
+      <rect x="10.5" y="30" width="3" height="6"/>
+      <circle cx="12" cy="14" r="1.4" fill="var(--surface-1)"/>
+    </symbol>
+    <!-- Blue Moon MK1: squat cylinder, dome, legs -->
+    <symbol id="ic-mk1" viewBox="0 0 24 26">
+      <path d="M7 18 V10 Q7 4 12 4 Q17 4 17 10 V18 Z"/>
+      <path d="M7 15 L3 24 L5.5 24 L9.5 17 Z"/><path d="M17 15 L21 24 L18.5 24 L14.5 17 Z"/>
+      <rect x="10.7" y="18" width="2.6" height="4"/>
+    </symbol>
+    <!-- Argonaut: boxy body on legs, sensor mast -->
+    <symbol id="ic-argonaut" viewBox="0 0 24 22">
+      <rect x="6" y="8" width="12" height="9" rx="1.5"/>
+      <rect x="11.2" y="3" width="1.6" height="5"/><circle cx="12" cy="2.6" r="1.8"/>
+      <path d="M7 16 L3.5 21 L6 21 L9 17 Z"/><path d="M17 16 L20.5 21 L18 21 L15 17 Z"/>
+    </symbol>
+    <!-- CLPS class: small lander, wide legs, antenna -->
+    <symbol id="ic-clps" viewBox="0 0 24 16">
+      <path d="M8 5 H16 L17.5 11 H6.5 Z"/>
+      <rect x="11.4" y="1" width="1.2" height="4"/>
+      <path d="M7.5 10 L3 15 L5.5 15 L9.5 11.5 Z"/><path d="M16.5 10 L21 15 L18.5 15 L14.5 11.5 Z"/>
+    </symbol>
+    <!-- CLPS heavy (Griffin/Nova-D): wide squat body, side tanks, four legs -->
+    <symbol id="ic-clpsh" viewBox="0 0 24 18">
+      <rect x="5" y="4" width="14" height="8" rx="2"/>
+      <circle cx="4.5" cy="8" r="2.4"/><circle cx="19.5" cy="8" r="2.4"/>
+      <rect x="10.8" y="1" width="2.4" height="3"/>
+      <path d="M6.5 11 L3 17 L5.5 17 L9 12.5 Z"/><path d="M17.5 11 L21 17 L18.5 17 L15 12.5 Z"/>
+    </symbol>
+    <!-- batch glyphs: five overlapping silhouettes = 5 landings -->
+    <symbol id="ic-starship5" viewBox="0 0 48 64">
+      <use href="#ic-starship" x="0" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-starship" x="6" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-starship" x="12" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-starship" x="18" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-starship" x="24" stroke="var(--surface-1)" stroke-width="1.2"/>
+    </symbol>
+    <symbol id="ic-mk25" viewBox="0 0 48 40">
+      <use href="#ic-mk2" x="0" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-mk2" x="6" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-mk2" x="12" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-mk2" x="18" stroke="var(--surface-1)" stroke-width="1.2"/>
+      <use href="#ic-mk2" x="24" stroke="var(--surface-1)" stroke-width="1.2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script>
+"use strict";
+
+/* ================= data ================= */
+
+const Y_MIN = 2026, Y_MAX = 2055, Y_SCAN = 2060;
+
+const TIERS = {
+  DEMONSTRATED: { label: "Demonstrated" },
+  CONTRACTED:   { label: "Contracted" },
+  ANNOUNCED:    { label: "Announced" },
+  TARGET:       { label: "Target" },
+};
+const TIER_ORDER = ["DEMONSTRATED","CONTRACTED","ANNOUNCED","TARGET"];
+const TIER_HEX = { DEMONSTRATED:"#2e7d32", CONTRACTED:"#2f79c7", ANNOUNCED:"#e8a33d", TARGET:"#e4711e" };
+
+/* slot order = stack order (biggest first). Colors via CSS vars (light/dark handled in CSS). */
+const DEFAULT_LANDERS = [
+  { id:"starship", name:"Starship HLS (cargo)", payload:100, first:2032, max:6, rampYears:5, on:true,
+    tier:"TARGET", hm:50,
+    note:"~100 t design payload; no cargo HLS built or flown. SpaceX commercial cargo target 2028 ($100M/t); NASA cargo variant NET Artemis VII; OIG (2026-03): HLS ≥2 yr behind, ship-to-ship propellant transfer still undemonstrated Jul 2026. ~10–16 tanker launches per landing." },
+  { id:"mk2", name:"Blue Moon MK2 (cargo)", payload:30, first:2031, max:4, rampYears:4, on:true,
+    tier:"ANNOUNCED", hm:16,
+    note:"Up to 30 t expendable-cargo design (3× BE-7). Uncrewed demo target 2027; Artemis V crewed ~2030; cargo ops assumed early-2030s. Not built." },
+  { id:"mk1", name:"Blue Moon MK1", payload:3, first:2027, max:4, rampYears:2, on:true,
+    sched:{ 2027:2, 2028:2 },
+    tier:"CONTRACTED", hm:8,
+    note:"3 t class. DOCUMENTED MANIFEST = 4 missions, all 2026–28: Moon Base I / Pathfinder (early 2027 after the New Glenn pad loss), VIPER (CS-7, NET late 2027), and two CX-2 LTV deliveries (~2028, $188M + $280.4M option). Nothing named 2029+; three flight hulls in assembly; NO stated production rate — the 3–4/yr cadence from 2029 is a study bound (Phase-2 tonnage ÷ medium landers), gated on pads: single rebuilt LC-36A through most of 2027 (RTF NET end-2026), LC-36B late 2027, Vandenberg SLC-14 NET ~2028." },
+  { id:"argonaut", name:"ESA Argonaut", payload:1.5, first:2031, max:1, rampYears:1, on:true,
+    tier:"CONTRACTED", hm:6,
+    note:"~1.5–2 t cargo. Mission 1 contracted 2025-11-20, NET end-2030; follow-on cadence unfunded at CM25." },
+  { id:"clps", name:"CLPS small", payload:0.15, first:2026, max:5, rampYears:2, on:true, min:2, last:2033,
+    sched:{ 2026:2, 2027:1, 2028:5, 2029:1 },
+    tier:"DEMONSTRATED", hm:4,
+    note:"100–150 kg capacity class (Nova-C 100 / Peregrine 120 / Blue Ghost 150 kg) — the only class that has landed (Blue Ghost M1 delivered ~94 kg, Mar 2025). NASA Phase-1 plan of record averages 4 t ÷ 21 landings ≈ 0.19 t; named manifest runs through the late-2028 awards + Blue Ghost 4 (2029), where Phase 1 ends. PHASED OUT after 2033 (study assumption): once HLS-class heavy landers are operating, Phase-2/3 cargo shifts to medium/heavy classes and small CLPS sunsets — edit “Last” to change. ~$1–1.2M per capacity-kg." },
+  { id:"clpsh", name:"CLPS heavy (Griffin / Nova-D)", payload:0.6, first:2026, max:2, rampYears:3, on:true, min:1,
+    sched:{ 2026:1, 2027:0, 2028:1, 2029:0 },
+    tier:"CONTRACTED", hm:5,
+    note:"Griffin 625 kg capacity — Griffin-1 NET Nov 2026 (Falcon Heavy, Nobile) with the ~500 kg Astrolab FLIP rover. IM Nova-D 2,500 kg capacity contracted ($180.4M, ~2028) — raise the payload here if you want the Nova-D era. Phase-2 plan of record implies 2.5 t average per landing 2029–32." },
+];
+
+/* Source links per vehicle (kept out of saved state; looked up by id at render).
+   All URLs web-verified 2026-07-13 / 2026-07-20. */
+const REFS = {
+  starship: [
+    { t: "NASA OIG IG-26-004 — HLS ≥2 yr behind, propellant-transfer pacing (2026-03-10)", u: "https://oig.nasa.gov/wp-content/uploads/2026/03/final-report-ig-26-004-nasas-management-of-the-human-landing-system-contracts.pdf" },
+    { t: "Starship HLS — design payload & status", u: "https://en.wikipedia.org/wiki/Starship_HLS" },
+    { t: "SpaceNews — ispace books 500 kg on Starship, NET 2030 (2026-07-08)", u: "https://spacenews.com/ispace-to-send-larger-payloads-to-the-moon-on-spacexs-starship/" },
+  ],
+  mk2: [
+    { t: "Blue Moon (spacecraft) — MK2 30 t design, demo target", u: "https://en.wikipedia.org/wiki/Blue_Moon_(spacecraft)" },
+    { t: "NASASpaceFlight — Blue Origin program update (2025-12)", u: "https://www.nasaspaceflight.com/2025/12/blue-origin-update" },
+  ],
+  mk1: [
+    { t: "Blue Origin — Blue Moon MK1 (3 t class)", u: "https://www.blueorigin.com/blue-moon/mark-1" },
+    { t: "NASA — Moon Base I + CX-2 LTV deliveries on MK1 ($188M + $280.4M option, 2026-05-26)", u: "https://www.nasa.gov/news-release/nasa-provides-update-on-moon-base-rovers-landers-missions/" },
+    { t: "NASA — VIPER delivery on MK1 flight 2 (CS-7, $190M potential, 2025-09-19)", u: "https://www.nasa.gov/news-release/nasa-selects-blue-origin-to-deliver-viper-rover-to-moons-south-pole/" },
+    { t: "Blue Origin manifest quote — MK1-101 Endurance → MK1-102 VIPER → two LTV missions", u: "https://www.leonarddavid.com/blue-origins-moon-lander-update/" },
+  ],
+  argonaut: [
+    { t: "ESA — Argonaut lunar lander", u: "https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/Argonaut_a_first_European_lunar_lander" },
+    { t: "European Spaceflight — Argonaut M1 targets 2031 (launch ~end-2030)", u: "https://europeanspaceflight.com/esa-targets-2031-for-first-argonaut-lunar-lander-mission/" },
+  ],
+  clps: [
+    { t: "NASA — $590.4M CLPS awards for late-2028 Moon Base missions (2026-06-30)", u: "https://www.nasa.gov/news-release/nasa-awards-more-moon-base-science-previews-new-opportunities/" },
+    { t: "NASA — Moon Base phases (4 t / 21 landings Phase 1; 60 t / 24 landings Phase 2)", u: "https://www.nasa.gov/moonbase-phases/" },
+    { t: "Blue Ghost Mission 1 — the one fully successful CLPS landing (~94 kg, 2025-03)", u: "https://en.wikipedia.org/wiki/Blue_Ghost_Mission_1" },
+  ],
+  clpsh: [
+    { t: "Astrobotic — Griffin-1 mission update, NET late 2026 (2026-06-15)", u: "https://www.astrobotic.com/griffin-1-mission-update/" },
+    { t: "Intuitive Machines — IM-5 / Nova-D $180.4M award (2026-03-24)", u: "https://investors.intuitivemachines.com/news-releases/news-release-details/intuitive-machines-expands-lunar-surface-operations-1804-million" },
+    { t: "Intuitive Machines — Nova-D (2,500 kg class)", u: "https://www.intuitivemachines.com/nova-d" },
+  ],
+};
+
+/* Scenario states: fleet overrides + the frozen Scenarios.docx "Annual landed mass" rails —
+   three points on a curve, t/yr AT the 2030 / 2040 / 2055 epochs. A scenario state makes the
+   plan FOLLOW that curve (linear between epochs, from ~0 in 2025), not hit a cumulative total. */
+const PRESETS = {
+  S1: { label:"S1 · Artemis Trajectory", rails:{ r30:10, r40:100, r55:500 },
+        desc:"Agency-led program of record. Rails per study reconciliation 2026-07-22 [J]: 10 t/yr (2030 — tight) → 100 t/yr (2040 — plausible) → 500 t/yr (2055). [Frozen doc: 10/200/1,000; the interim program-rail variant (≈214 t then +5%/yr) superseded.] Fleet: study risk-adjusted dates and cadence bounds.",
+        ov:{ starship:{max:10} } },
+  S2: { label:"S2 · Mars Pivot", rails:{ r30:10, r40:75, r55:150 },
+        desc:"(Frozen name: Contested Foundations.) Agency plateau, heavy lift diverted to Mars: Starship from 2034 at 1/yr, MK2 from 2032 at 2/yr, agency cadence thins.",
+        ov:{ starship:{first:2034,max:1,rampYears:1}, mk2:{first:2032,max:2,rampYears:2}, mk1:{max:3}, clps:{max:3,last:2035}, clpsh:{max:1} } },
+  S3: { label:"S3 · Commercial Break", rails:{ r30:10, r40:1000, r55:10000 },
+        desc:"Commercial pull: Starship cargo from 2031 ramping toward ~95 landings/yr, with Blue Moon MK2 held at ~20% of Starship's cadence (to ~19/yr), MK1 to 6/yr. Rails per study reconciliation 2026-07-22 [J]: 10 → 1,000 → 10,000 t/yr — the 2055 value explicitly a STRETCH (~100 Starship-class landings + ~1,400 tanker launches/yr).",
+        ov:{ starship:{first:2031,max:95,rampYears:16}, mk2:{max:19,rampYears:12,ratioOf:"starship",ratio:0.2}, mk1:{max:6}, clps:{max:5}, clpsh:{max:3} } },
+};
+
+/* S1 "program" rail (2026-07-21): the documented Moon Base program — manifest years,
+   then Phase 2/3 ramp completing the ≈214 t allocation by ~2035 — then +5%/yr growth. */
+const S1_PROGRAM = { 2026:0.9, 2027:6.2, 2028:7.4, 2029:6.2, 2030:15, 2031:22, 2032:30, 2033:38, 2034:45, 2035:50 };
+/* The scenario's annual-landed-mass rail at year y: either the program table + 5%/yr
+   (S1), or linear between the doc's three epoch points (2030 / 2040 / 2055). */
+function railRate(rails, y) {
+  if (y <= 2025) return 0;
+  if (rails.type === "program") {
+    if (S1_PROGRAM[y] !== undefined) return S1_PROGRAM[y];
+    return 50 * Math.pow(1.05, y - 2035);
+  }
+  if (y <= 2030) return rails.r30 * (y - 2025) / 5;
+  if (y <= 2040) return rails.r30 + (rails.r40 - rails.r30) * (y - 2030) / 10;
+  if (y <= 2055) return rails.r40 + (rails.r55 - rails.r40) * (y - 2040) / 15;
+  return rails.r55;
+}
+function railCumulative(rails, yEnd) {
+  let cum = 0;
+  for (let y = 2026; y <= yEnd; y++) cum += railRate(rails, y);
+  return Math.round(cum);
+}
+const EPOCHS = [2030, 2040, 2055];
+
+/* ================= state ================= */
+
+const LS_KEY = "lsei-landed-mass-v4";
+let state = {
+  mass: 500, y0: 2026, y1: 2055, mode: "paced", preset: null, theme: "auto",
+  demand: "curve", rails: { r30: 10, r40: 100, r55: 500 },
+  landers: JSON.parse(JSON.stringify(DEFAULT_LANDERS)),
+};
+try {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+  if (saved && saved.landers && saved.landers.length === DEFAULT_LANDERS.length) state = saved;
+} catch (e) {}
+
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+
+/* ================= model ================= */
+
+function cadence(l, y) {
+  if (!l.on || y < l.first || (l.last && y > l.last)) return 0;
+  const k = y - l.first + 1;
+  if (l.rampYears <= 1) return l.max;
+  return Math.min(l.max, Math.max(1, Math.round(k * l.max / l.rampYears)));
+}
+
+function capacityYear(y) {
+  let t = 0;
+  for (const l of state.landers) t += cadence(l, y) * l.payload;
+  return t;
+}
+
+/* Fill one year toward `need` tonnes: largest-first (exact fits allowed), final flight
+   best-fit; then compare against a single covering flight and keep whichever
+   overshoots less (ties → fewer flights). gentle=true (scenario-curve mode): a heavy
+   lander (>5 t) never flies for a gap under half its payload — the gap banks forward
+   instead. Returns {flights, tons}. */
+function fillYear(y, need, caps, gentle = false) {
+  if (need <= 1e-9) return { flights: {}, tons: 0 };
+  const avail = state.landers.filter(l => caps[l.id] > 0);
+  const fa = {}; let ta = 0, na = 0;
+  const capsA = Object.assign({}, caps);
+  for (const l of avail) {
+    while (capsA[l.id] > 0 && need - ta >= l.payload - 1e-9) {
+      fa[l.id] = (fa[l.id] || 0) + 1; capsA[l.id]--; ta += l.payload; na++;
+    }
+  }
+  if (need - ta > 1e-9) {
+    // one more flight to cover the remainder: smallest vehicle that covers it, else largest available
+    let pick = null;
+    for (let i = avail.length - 1; i >= 0; i--) {
+      const l = avail[i];
+      if (capsA[l.id] > 0 && l.payload >= need - ta) { pick = l; break; }
+    }
+    if (!pick) for (const l of avail) if (capsA[l.id] > 0) { pick = l; break; }
+    if (pick && gentle && pick.payload > 5 && pick.payload > 2 * (need - ta)) pick = null;
+    if (pick) { fa[pick.id] = (fa[pick.id] || 0) + 1; capsA[pick.id]--; ta += pick.payload; na++; }
+  }
+  // candidate B: one flight of the smallest vehicle that covers the whole need
+  let cover = null;
+  for (let i = avail.length - 1; i >= 0; i--) {
+    const l = avail[i];
+    if (l.payload >= need - 1e-9) { cover = l; break; }
+  }
+  if (cover && gentle && cover.payload > 5 && cover.payload > 2 * need) cover = null;
+  if (cover && na > 1 && cover.payload <= ta + 1e-9) {
+    const fb = {}; fb[cover.id] = 1;
+    caps[cover.id]--;   // B consumes only the single cover flight (caps untouched otherwise)
+    return { flights: fb, tons: cover.payload };
+  }
+  for (const id in caps) caps[id] = capsA[id];   // commit A's consumption
+  return { flights: fa, tons: ta };
+}
+
+function computePlan() {
+  const M = state.mass, y0 = state.y0, y1 = state.y1;
+  const years = []; for (let y = y0; y <= y1; y++) years.push(y);
+
+  /* Scenario-curve mode: each year lands the frozen rail's ANNUAL tonnage
+     (three doc points, linear between). No pacing choice — the curve is the pacing. */
+  if (state.demand === "curve" && state.rails) {
+    const perYear = []; let cum = 0, railCum = 0;
+    for (const y of years) {
+      const caps = {}; for (const l of state.landers) caps[l.id] = cadence(l, y);
+      const need = railRate(state.rails, y);
+      railCum += need;
+      // 2026-29: pinned to the documented manifest (sched = exact flight count, no demand
+      // top-ups that year); beyond the manifest: CLPS floors + demand fill
+      const floor = {}; let floorTons = 0;
+      for (const l of state.landers) {
+        if (!l.on) continue;
+        const schedN = l.sched && l.sched[y] !== undefined ? l.sched[y] : null;
+        let baseMin = l.min || 0;
+        // market-share floor: fly at a fixed ratio of a reference vehicle's ACTUAL flights,
+        // previous year (S3: MK2 = 20% of Starship)
+        if (l.ratioOf) {
+          const prev = perYear.length ? (perYear[perYear.length - 1].flights[l.ratioOf] || 0) : 0;
+          baseMin = Math.max(baseMin, Math.round((l.ratio || 0) * prev));
+        }
+        const f = Math.min(schedN !== null ? schedN : baseMin, caps[l.id]);
+        if (f > 0) { floor[l.id] = f; floorTons += f * l.payload; }
+        caps[l.id] = schedN !== null ? 0 : caps[l.id] - f;
+      }
+      cum += floorTons;
+      // banked fill: chase the CUMULATIVE rail, so a heavy lander's surplus carries forward
+      const gap = Math.max(0, railCum - cum);
+      let capRemaining = 0; for (const l of state.landers) capRemaining += caps[l.id] * l.payload;
+      const r = fillYear(y, Math.min(gap, capRemaining), caps, true);
+      cum += r.tons;
+      const merged = Object.assign({}, floor);
+      for (const id in r.flights) merged[id] = (merged[id] || 0) + r.flights[id];
+      perYear.push({ y, flights: merged, tons: floorTons + r.tons, need, cum, railCum });
+    }
+    // epoch check: met if the epoch YEAR hits the rail, the 3-year average does, or the
+    // program is on the rail CUMULATIVELY (banking means an over-delivering year can
+    // legitimately depress the epoch-year rate)
+    const epochs = EPOCHS.filter(e => e >= y0 && e <= y1).map(e => {
+      const i = perYear.findIndex(r => r.y === e);
+      const need = railRate(state.rails, e);
+      if (i < 0) return { y: e, need, got: 0, met: false };
+      const win = perYear.slice(Math.max(0, i - 2), i + 1);
+      const avg = win.reduce((a, r) => a + r.tons, 0) / win.length;
+      const got = Math.max(perYear[i].tons, avg);
+      const byCum = perYear[i].cum >= perYear[i].railCum * 0.98;
+      return { y: e, need, got,
+               met: perYear[i].tons >= need * 0.95 || avg >= need * 0.9 || byCum,
+               cumOnly: byCum && !(perYear[i].tons >= need * 0.95 || avg >= need * 0.9) };
+    });
+    const totals = {}; let totalFlights = 0, delivered = 0;
+    for (const l of state.landers) totals[l.id] = 0;
+    for (const row of perYear) { delivered += row.tons; for (const id in row.flights) { totals[id] += row.flights[id]; totalFlights += row.flights[id]; } }
+    const tierTons = {};
+    for (const l of state.landers) {
+      const t = totals[l.id] * l.payload;
+      if (t > 0) tierTons[l.tier] = (tierTons[l.tier] || 0) + t;
+    }
+    return { years, perYear, totals, totalFlights, delivered, capWindow: 0,
+             feasible: epochs.every(e => e.met), earliest: null, done: null,
+             modeUsed: "curve", curve: true, epochs, tierTons };
+  }
+
+  // capacity inside the window + earliest full-cadence completion (scan to Y_SCAN)
+  let capWindow = 0; for (const y of years) capWindow += capacityYear(y);
+  let cum = 0, earliest = null;
+  for (let y = y0; y <= Y_SCAN; y++) { cum += capacityYear(y); if (cum >= M) { earliest = y; break; } }
+
+  const feasible = capWindow >= M - 1e-9;
+  const mode = feasible ? state.mode : "max";
+
+  const perYear = []; let delivered = 0;
+  if (mode === "max") {
+    for (const y of years) {
+      const caps = {}; for (const l of state.landers) caps[l.id] = cadence(l, y);
+      if (delivered >= M - 1e-9) { perYear.push({ y, flights: {}, tons: 0 }); continue; }
+      const r = fillYear(y, Math.min(M - delivered, capacityYear(y)), caps);
+      delivered += r.tons; perYear.push({ y, flights: r.flights, tons: r.tons });
+    }
+  } else if (mode === "jit") {
+    for (let i = 0; i < years.length; i++) {
+      const y = years[i];
+      const caps = {}; for (const l of state.landers) caps[l.id] = cadence(l, y);
+      let futureCap = 0; for (let j = i + 1; j < years.length; j++) futureCap += capacityYear(years[j]);
+      const needNow = Math.max(0, (M - delivered) - futureCap);
+      if (needNow <= 1e-9) { perYear.push({ y, flights: {}, tons: 0 }); continue; }
+      const r = fillYear(y, Math.min(needNow, capacityYear(y)), caps);
+      delivered += r.tons; perYear.push({ y, flights: r.flights, tons: r.tons });
+    }
+  } else {
+    const u = M / capWindow;
+    for (const y of years) {
+      const caps = {}; for (const l of state.landers) caps[l.id] = cadence(l, y);
+      const want = Math.min(M - delivered, u * capacityYear(y));
+      const r = fillYear(y, Math.max(0, want), caps);
+      delivered += r.tons; perYear.push({ y, flights: r.flights, tons: r.tons });
+    }
+    // paced rounding can leave a shortfall — top up in the last years with spare cadence
+    for (let i = perYear.length - 1; i >= 0 && delivered < M - 1e-9; i--) {
+      const y = perYear[i].y;
+      const caps = {};
+      for (const l of state.landers) caps[l.id] = cadence(l, y) - (perYear[i].flights[l.id] || 0);
+      const r = fillYear(y, M - delivered, caps);
+      for (const id in r.flights) perYear[i].flights[id] = (perYear[i].flights[id] || 0) + r.flights[id];
+      perYear[i].tons += r.tons; delivered += r.tons;
+    }
+  }
+
+  // cumulative + done year
+  let c = 0, done = null;
+  for (const row of perYear) { c += row.tons; row.cum = c; if (done === null && c >= M - 1e-9) done = row.y; }
+
+  // totals per lander + tier split
+  const totals = {}; let totalFlights = 0;
+  for (const l of state.landers) totals[l.id] = 0;
+  for (const row of perYear) for (const id in row.flights) { totals[id] += row.flights[id]; totalFlights += row.flights[id]; }
+  const tierTons = {};
+  for (const l of state.landers) {
+    const t = totals[l.id] * l.payload;
+    if (t > 0) tierTons[l.tier] = (tierTons[l.tier] || 0) + t;
+  }
+
+  return { years, perYear, totals, totalFlights, delivered, capWindow, feasible, earliest, done, modeUsed: mode, tierTons };
+}
+
+/* ================= formatting ================= */
+
+const fmt = n => n >= 100 ? Math.round(n).toLocaleString("en-US")
+             : n >= 10 ? (Math.round(n * 10) / 10).toLocaleString("en-US")
+             : Math.round(n * 100) / 100;
+const fmtT = n => fmt(n) + " t";
+
+/* ================= render ================= */
+
+const $ = id => document.getElementById(id);
+const tip = $("tip");
+
+function landerColor(l) { return `var(--c-${l.id})`; }
+
+function icon(l, h, five = false) {
+  const VB = { starship:[24,64], mk2:[24,40], mk1:[24,26], argonaut:[24,22], clps:[24,16], clpsh:[24,18],
+               starship5:[48,64], mk25:[48,40] };
+  const key = five ? (l.id === "mk2" ? "mk25" : l.id + "5") : l.id;
+  const vb = VB[key];
+  const w = Math.max(8, Math.round(h * vb[0] / vb[1]));
+  return `<svg width="${w}" height="${h}" fill="${landerColor(l)}" aria-hidden="true"><use href="#ic-${key}"/></svg>`;
+}
+
+function showRefs(row) {
+  const panel = $("refpanel");
+  let h = `<button class="ghostbtn" id="refClose" style="float:right" aria-label="Close">✕</button>` +
+          `<h3>${row.y} — what flies, and why</h3>`;
+  const active = state.landers.filter(l => (row.flights[l.id] || 0) > 0);
+  if (!active.length) {
+    h += `<div class="basis">No landings planned this year` +
+         (row.need !== undefined ? ` (rail ${fmt(row.need)} t/yr — below the smallest useful flight or already covered)` : "") + `.</div>`;
+  }
+  for (const l of active) {
+    const n = row.flights[l.id];
+    h += `<div class="rv"><span class="swatch" style="background:${landerColor(l)}"></span> <b>${l.name}</b> ` +
+         `<span class="chip ${l.tier}">${TIERS[l.tier].label}</span> — ${n} landing${n > 1 ? "s" : ""} · ${fmtT(n * l.payload)}` +
+         `<div class="basis">${l.note}</div>`;
+    const rs = REFS[l.id] || [];
+    if (rs.length) h += `<div class="reflinks">` + rs.map(r => `→ <a href="${r.u}" target="_blank" rel="noopener">${r.t}</a>`).join("<br>") + `</div>`;
+    h += `</div>`;
+  }
+  for (const l of state.landers) if (l.on && l.first === row.y) {
+    h += `<div class="basis">▲ ${l.name} first landing assumed this year — a study risk-adjusted judgment [J], not a manifest date (see basis above).</div>`;
+  }
+  h += `<div class="basis" style="margin-top:8px;border-top:1px solid var(--grid);padding-top:8px">Flight counts are the allocator's output (biggest vehicle first, final flight best-fit), bounded by each vehicle's cadence caps — the references support the caps and dates, not the specific count. Deeper causal chains: workbook research base, research/driving_assumptions.json.</div>`;
+  panel.innerHTML = h;
+  panel.style.display = "block";
+  $("refClose").onclick = () => panel.style.display = "none";
+}
+
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(x + 14, innerWidth - r.width - 10) + "px";
+  tip.style.top = Math.min(y + 14, innerHeight - r.height - 10) + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+function renderControls() {
+  $("mass").value = state.mass;
+  $("massSlider").value = Math.round(Math.log10(Math.max(1, state.mass)) / 4 * 100);
+  const sel0 = $("y0"), sel1 = $("y1");
+  if (!sel0.options.length) {
+    for (let y = Y_MIN; y <= Y_MAX; y++) {
+      sel0.add(new Option(y, y)); sel1.add(new Option(y, y));
+    }
+  }
+  sel0.value = state.y0; sel1.value = state.y1;
+  $("modePaced").classList.toggle("on", state.mode === "paced");
+  $("modeMax").classList.toggle("on", state.mode === "max");
+  $("modeJit").classList.toggle("on", state.mode === "jit");
+  const pr = $("presets");
+  pr.innerHTML = "";
+  for (const k in PRESETS) {
+    const b = document.createElement("button");
+    b.className = "preset" + (state.preset === k ? " on" : "");
+    b.textContent = PRESETS[k].label;
+    b.onclick = () => { applyPreset(k); };
+    pr.appendChild(b);
+  }
+  if (state.preset) {
+    const P = PRESETS[state.preset];
+    $("presetDesc").textContent = P.rails.type === "program"
+      ? `${P.desc} Epoch values: ~${P.rails.r30} t/yr (2030) → ~${P.rails.r40} t/yr (2040) → ~${P.rails.r55} t/yr (2055). Pacing modes don't apply; editing the mass target returns to sandbox mode.`
+      : `${P.desc} Frozen "Annual landed mass" rail — three points on a curve: ` +
+        `${P.rails.r30} t/yr (2030) → ${P.rails.r40.toLocaleString("en-US")} t/yr (2040) → ${P.rails.r55.toLocaleString("en-US")} t/yr (2055). ` +
+        `The plan follows that curve (linear between epochs); pacing modes don't apply. Editing the mass target returns to sandbox mode.`;
+  } else {
+    $("presetDesc").textContent = state.rails
+      ? `Custom curve — annual landed mass ramps ${fmt(state.rails.r30)} → ${fmt(state.rails.r40)} → ${fmt(state.rails.r55)} t/yr (2030 / 2040 / 2055). The mass box sets the 2055 annual value; click a scenario state to reload a full definition.`
+      : "Sandbox — set your own numbers, or click a scenario state.";
+  }
+  $("pacingSeg").style.opacity = state.demand === "curve" ? 0.35 : 1;
+  $("pacingSeg").style.pointerEvents = state.demand === "curve" ? "none" : "auto";
+  $("themeBtn").textContent = "Theme: " + state.theme;
+}
+
+function presetState(k) {
+  state.preset = k;
+  state.landers = JSON.parse(JSON.stringify(DEFAULT_LANDERS));
+  const P = PRESETS[k];
+  for (const id in P.ov) {
+    const l = state.landers.find(x => x.id === id);
+    Object.assign(l, P.ov[id]);
+  }
+  state.demand = "curve";
+  state.rails = P.rails;
+  state.railsBase = null;
+  state.mass = P.rails.r55;
+  state.y0 = 2026; state.y1 = 2055;
+}
+function applyPreset(k) { presetState(k); update(); }
+
+function renderHero(p) {
+  const v = $("verdict");
+  if (p.curve) {
+    $("titleMass").textContent = fmt(state.rails.r55) + " t/yr";
+    $("heroMass").textContent = fmt(state.rails.r55);
+    $("heroUnit").textContent = " t/yr by 2055";
+    $("heroWindow").textContent = `following the scenario curve ${state.y0}–${state.y1} · cumulative ${fmtT(p.delivered)} landed`;
+    $("heroFlights").textContent = p.totalFlights.toLocaleString("en-US");
+    const lastMet = [...p.epochs].reverse().find(e => e.met);
+    $("heroDone").textContent = lastMet ? "rail met thru " + lastMet.y : "—";
+    v.className = "verdict " + (p.feasible ? "ok" : "bad");
+    v.innerHTML = p.epochs.map(e =>
+      `${e.y} ${e.met ? "✓" : "✗"} <span style="color:var(--muted);font-weight:400">${e.cumOnly ? `on rail cumulatively (~${fmt(e.got)}/${fmt(e.need)} t/yr at epoch)` : `~${fmt(e.got)}/${fmt(e.need)} t/yr`}</span>`
+    ).join(" · ");
+  } else {
+    $("titleMass").textContent = fmt(state.mass) + " t";
+    $("heroMass").textContent = fmt(state.mass);
+    $("heroUnit").textContent = " t";
+    $("heroWindow").textContent = `landed ${state.y0}–${state.y1} · plan delivers ${fmtT(p.delivered)}` +
+      (p.delivered > state.mass * 1.005 ? " (overshoot: flights are whole)" : "");
+    $("heroFlights").textContent = p.totalFlights.toLocaleString("en-US");
+    $("heroDone").textContent = p.done ? p.done : "—";
+    if (p.feasible) {
+      v.className = "verdict ok";
+      v.innerHTML = "✓ fits the window" + (p.earliest ? ` <span style="color:var(--muted);font-weight:400">· earliest possible ${p.earliest}</span>` : "");
+    } else {
+      v.className = "verdict bad";
+      v.innerHTML = `✗ window max ${fmtT(p.capWindow)} — ` + (p.earliest ? `earliest ${p.earliest} at full cadence` : `not reachable by ${Y_SCAN}`);
+    }
+  }
+  // evidence split
+  const bar = $("evBar"), key = $("evKey");
+  bar.innerHTML = ""; key.innerHTML = "";
+  const tot = Object.values(p.tierTons).reduce((a, b) => a + b, 0) || 1;
+  let worst = null;
+  for (const t of TIER_ORDER) {
+    const v2 = p.tierTons[t] || 0; if (v2 <= 0) continue;
+    const d = document.createElement("div");
+    d.style.width = (v2 / tot * 100) + "%"; d.style.background = TIER_HEX[t];
+    d.title = `${TIERS[t].label}: ${fmtT(v2)}`;
+    bar.appendChild(d);
+    const k = document.createElement("span");
+    k.innerHTML = `<span class="chip ${t}">${TIERS[t].label}</span> ${Math.round(v2 / tot * 100)}%`;
+    key.appendChild(k);
+    worst = { t, pct: Math.round(v2 / tot * 100) };
+  }
+  const tgtLabel = p.curve ? `${fmt(state.rails.r55)} t/yr` : `${fmt(state.mass)} t`;
+  $("evHeadline").textContent = worst && (worst.t === "TARGET" || worst.t === "ANNOUNCED")
+    ? `${worst.pct}% of these tonnes ride on ${TIERS[worst.t].label.toLowerCase()}-tier vehicles — that is what "${tgtLabel}" assumes.`
+    : "Share of tonnes by evidence tier of the carrying vehicle:";
+}
+
+function renderEquiv() {
+  const el = $("equiv"); el.innerHTML = "";
+  const curve = state.demand === "curve" && state.rails;
+  const target = curve ? state.rails.r55 : state.mass;
+  const unit = curve ? " landings/yr" : " landings";
+  for (const l of state.landers) {
+    const exact = target / l.payload;
+    const card = document.createElement("div");
+    card.className = "ecard";
+    card.innerHTML =
+      `<div class="figwrap">${icon(l, Math.round(l.hm * 3))}</div>` +
+      `<div class="cnt">${Math.ceil(exact).toLocaleString("en-US")}<small>${unit}${Number.isInteger(exact) ? "" : ` (${exact >= 100 ? exact.toFixed(0) : exact.toFixed(1)} exact)`}</small></div>` +
+      `<div class="nm">${l.name}</div>` +
+      `<div class="meta">${fmt(l.payload)} t/landing · <span class="chip ${l.tier}">${TIERS[l.tier].label}</span></div>`;
+    el.appendChild(card);
+  }
+  const h2 = document.querySelector("#equiv").parentElement.querySelector("h2");
+  h2.textContent = curve ? `If the ${fmt(target)} t/yr rail (2055) all flew on one vehicle` : "If it all flew on one vehicle";
+}
+
+function renderFleet(p) {
+  const el = $("fleet"); el.innerHTML = "";
+  const units = [1, 2, 5, 10, 20, 50, 100];
+  let U = 1;
+  for (const u of units) { U = u; let n = 0; for (const l of state.landers) n += Math.round((p.totals[l.id] || 0) / u); if (n <= 400) break; }
+  $("unitNote").innerHTML = U > 1
+    ? `1 icon = <b>${U}</b> landings (icon counts rounded — labels are exact). Icons not to height scale here; see the vehicle scale above.`
+    : `1 icon = 1 landing. Icons not to height scale here; see the vehicle scale above.`;
+  for (const l of state.landers) {
+    const n = p.totals[l.id] || 0;
+    const row = document.createElement("div");
+    row.className = "fleetrow";
+    const tons = n * l.payload;
+    const share = p.delivered > 0 ? Math.round(tons / p.delivered * 100) : 0;
+    let grid = "";
+    if (n > 0) {
+      const icons = Math.max(1, Math.round(n / U));
+      const h = { starship: 30, mk2: 24, mk1: 18, argonaut: 16, clps: 12, clpsh: 14 }[l.id];
+      grid = `<div class="icongrid">` + icon(l, h).repeat(icons) + `</div>`;
+    } else {
+      grid = `<div class="zero">${!l.on ? "disabled" : (l.last && l.last < state.y0) ? "retired before this window" : cadence(l, state.y1) === 0 && l.first > state.y1 ? "not yet flying in this window" : "no flights needed in this plan"}</div>`;
+    }
+    row.innerHTML =
+      `<div class="fleethead"><span class="swatch" style="background:${landerColor(l)}"></span>` +
+      `<span class="nm">${l.name}</span><span class="chip ${l.tier}">${TIERS[l.tier].label}</span>` +
+      `<span class="n">${n.toLocaleString("en-US")} landings · ${fmtT(tons)} · ${share}%</span></div>` + grid;
+    el.appendChild(row);
+  }
+  $("mixRule").textContent = {
+    paced: "Mix rule — steady program: each year carries its capacity share of the target, so per-year slices are small and the medium landers dominate. “Fewest flights” shows the opposite pole: wait and consolidate onto the heavies.",
+    max:   "Mix rule — as fast as possible: every vehicle flies at full cadence, biggest first, until the target is met (front-loaded).",
+    jit:   "Mix rule — fewest flights: everything defers as late as the deadline allows, so the mass consolidates onto the biggest vehicles flying by then.",
+    curve: "Mix rule — scenario curve: 2026–29 are PINNED to the documented manifest (2026: Griffin-1 + IM-3 + Blue Ghost 2 · 2027: MK1 Pathfinder + VIPER + CP-22 · 2028: the four late-2028 awards + BG3 + Nova-D + two MK1 LTV deliveries · 2029: Blue Ghost 4). From 2030 each year flies the CLPS floors then chases the CUMULATIVE rail — heavy surplus banks forward, heavies (>5 t) only fly for gaps above half their payload. Epoch verdict = year, 3-yr average, or cumulative on the rail.",
+  }[p.modeUsed];
+}
+
+function renderTimeline(p) {
+  const legend = $("tlLegend"); legend.innerHTML = "";
+  const LEGH = { starship: 30, mk2: 24, mk1: 18, argonaut: 15, clps: 12, clpsh: 14 };
+  for (const l of state.landers) {
+    if (!l.on) continue;
+    const s = document.createElement("span");
+    s.innerHTML = `<span class="lgi">${icon(l, LEGH[l.id])}</span><b style="color:${landerColor(l)}">${l.name}</b>`;
+    legend.appendChild(s);
+  }
+  const unitEl = document.createElement("span");
+  unitEl.id = "tlUnitNote";
+  legend.appendChild(unitEl);
+
+  const cols = $("tlCols"), yrs = $("tlYears");
+  cols.innerHTML = ""; yrs.innerHTML = "";
+  // fit the whole window without horizontal scroll where possible
+  const colW = Math.max(34, Math.min(72, Math.floor(($("tlScroll").clientWidth - 8) / p.perYear.length)));
+  p._colW = colW;
+  let usedBatch = false;
+  const MAXICONS = 60;
+  for (const row of p.perYear) {
+    const col = document.createElement("div");
+    col.className = "tl-col"; col.tabIndex = 0;
+    col.style.width = colW + "px"; col.style.flex = "0 0 " + colW + "px";
+    let html = "", count = 0, extra = 0;
+    // biggest first in DOM = bottom of the stack; Starship/MK2 batch into 5-stack glyphs
+    for (const l of state.landers) {
+      const f = row.flights[l.id] || 0;
+      if (f <= 0) continue;
+      const h = { starship: 26, mk2: 20, mk1: 15, argonaut: 13, clps: 10, clpsh: 12 }[l.id];
+      if (l.id === "starship" || l.id === "mk2") {
+        const fives = Math.floor(f / 5), rem = f % 5;
+        for (let i = 0; i < fives; i++) {
+          if (count < MAXICONS) { html += icon(l, h, true); usedBatch = true; } else extra += 5;
+          count++;
+        }
+        for (let i = 0; i < rem; i++) {
+          if (count < MAXICONS) html += icon(l, h); else extra++;
+          count++;
+        }
+      } else {
+        for (let i = 0; i < f; i++) {
+          if (count < MAXICONS) html += icon(l, h); else extra++;
+          count++;
+        }
+      }
+    }
+    const SHORTF = { starship: "Starship", mk2: "MK2", mk1: "MK1", argonaut: "Argonaut", clps: "CLPS", clpsh: "Griffin" };
+    let firsts = "";
+    for (const l of state.landers) if (l.on && l.first === row.y) {
+      firsts += `<div style="color:${landerColor(l)}">▲ ${SHORTF[l.id]}<br>first</div>`;
+    }
+    col.innerHTML = (firsts ? `<div class="firsts">${firsts}</div>` : "") +
+      (extra > 0 ? `<span class="plus">+${extra}</span>` : "") + `<div class="stack">` + html + `</div>`;
+    const tipHtml = () => {
+      let s = `<div class="t">${row.y}</div>`;
+      const n = Object.values(row.flights).reduce((a, b) => a + b, 0);
+      s += `<div class="r"><span>Landings</span><b>${n}</b></div>`;
+      s += `<div class="r"><span>This year</span><b>${fmtT(row.tons)}</b></div>`;
+      const idx = p.perYear.indexOf(row);
+      if (idx > 0 && p.perYear[idx - 1].tons > 1e-9) {
+        const g = (row.tons / p.perYear[idx - 1].tons - 1) * 100;
+        s += `<div class="r"><span>YoY growth</span><b>${g >= 0 ? "+" : ""}${Math.round(g)}%</b></div>`;
+      }
+      s += `<div class="r"><span>Cumulative</span><b>${fmtT(row.cum)}</b></div>`;
+      for (const l of state.landers) {
+        const f = row.flights[l.id] || 0; if (!f) continue;
+        s += `<div class="r"><span><span class="swatch" style="background:${landerColor(l)}"></span> ${l.name}</span><b>${f}</b></div>`;
+      }
+      return s;
+    };
+    col.addEventListener("mousemove", e => showTip(tipHtml(), e.clientX, e.clientY));
+    col.addEventListener("mouseleave", hideTip);
+    col.addEventListener("focus", () => { const r = col.getBoundingClientRect(); showTip(tipHtml(), r.left, r.bottom); });
+    col.addEventListener("blur", hideTip);
+    col.addEventListener("click", () => { hideTip(); showRefs(row); });
+    col.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hideTip(); showRefs(row); } });
+    cols.appendChild(col);
+
+    const yl = document.createElement("div");
+    yl.className = "tl-year";
+    yl.style.width = colW + "px"; yl.style.flex = "0 0 " + colW + "px";
+    if (colW < 48) yl.style.fontSize = "10px";
+    yl.innerHTML = `${row.y}<span class="tons">${row.tons > 0 ? fmtT(row.tons) : "·"}</span>`;
+    yrs.appendChild(yl);
+  }
+  const unitNoteEl = $("tlUnitNote");
+  if (unitNoteEl) unitNoteEl.innerHTML = usedBatch
+    ? `· <span style="display:inline-block;vertical-align:-4px">${icon(state.landers.find(l => l.id === "starship"), 18, true)}</span> <b>= 5 landings</b> (Starship / MK2 group into fives; hover for exact counts)`
+    : "";
+  renderCum(p);
+}
+
+function renderCum(p) {
+  const colW = p._colW || 72, W = p.perYear.length * colW, H = 120, padT = 14, padB = 18;
+  const svg = $("cumsvg");
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink-2").trim();
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--c-starship").trim();
+  const xv = i => i * colW + colW / 2;
+
+  if (p.curve) {
+    // annual landed tonnage vs the frozen rail curve, plus an aligned YoY-growth panel
+    const G_H = 78, G_TOP = H + 14, TOTAL_H = H + 14 + G_H;
+    svg.setAttribute("height", TOTAL_H);
+    svg.setAttribute("viewBox", `0 0 ${W} ${TOTAL_H}`);
+    const maxV = Math.max(state.rails.r55, ...p.perYear.map(r => r.tons)) * 1.08 || 1;
+    const yv = v => H - padB - (v / maxV) * (H - padT - padB);
+    let line = "", rail = "";
+    p.perYear.forEach((r, i) => {
+      line += (i ? " L " : "M ") + xv(i) + " " + yv(r.tons);
+      rail += (i ? " L " : "M ") + xv(i) + " " + yv(r.need);
+    });
+    let dots = "";
+    for (const e of p.epochs) {
+      const i = p.perYear.findIndex(r => r.y === e.y);
+      if (i < 0) continue;
+      dots += `<circle cx="${xv(i)}" cy="${yv(e.need)}" r="4" fill="${ink}" stroke="var(--surface-1)" stroke-width="1.5"/>` +
+              `<text x="${xv(i)}" y="${Math.max(11, yv(e.need) - 8)}" text-anchor="middle" font-size="10" fill="${ink}">${fmt(e.need)}</text>`;
+    }
+    // ---- growth panel: YoY % change of annual landed mass (own scale, aligned x) ----
+    const GMIN = -50, GMAX = 100;
+    const gy = v => G_TOP + 16 + (GMAX - Math.max(GMIN, Math.min(GMAX, v))) / (GMAX - GMIN) * (G_H - 26);
+    const growth = (arr, key) => arr.map((r, i) =>
+      i === 0 || arr[i - 1][key] <= 1e-9 ? null : (r[key] / arr[i - 1][key] - 1) * 100);
+    const gPlan = growth(p.perYear, "tons"), gRail = growth(p.perYear, "need");
+    const gPath = g => {
+      let s = "", pen = false;
+      g.forEach((v, i) => {
+        if (v === null) { pen = false; return; }
+        s += (pen ? " L " : " M ") + xv(i) + " " + gy(v); pen = true;
+      });
+      return s;
+    };
+    let gLast = "";
+    for (let i = gPlan.length - 1; i >= 0; i--) {
+      if (gPlan[i] !== null) {
+        gLast = `<text x="${Math.min(xv(i) + 6, W - 46)}" y="${gy(gPlan[i]) - 6}" font-size="10" font-weight="600" fill="${ink}">${gPlan[i] >= 0 ? "+" : ""}${Math.round(gPlan[i])}%/yr</text>`;
+        break;
+      }
+    }
+    const gridC = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim();
+    svg.innerHTML =
+      `<path d="${rail}" fill="none" stroke="${ink}" stroke-width="1.4" stroke-dasharray="5 4" opacity="0.8"/>` +
+      `<path d="${line}" fill="none" stroke="${accent}" stroke-width="2"/>` +
+      dots +
+      `<text x="6" y="12" font-size="11" fill="${ink}">annual t/yr — solid = plan, dashed = frozen rail (● epoch points)</text>` +
+      `<line x1="0" y1="${G_TOP}" x2="${W}" y2="${G_TOP}" stroke="${gridC}" stroke-width="1"/>` +
+      `<line x1="0" y1="${gy(0)}" x2="${W}" y2="${gy(0)}" stroke="${gridC}" stroke-width="1"/>` +
+      `<text x="6" y="${G_TOP + 12}" font-size="11" fill="${ink}">YoY growth of annual landed mass — solid = plan, dashed = rail (scale −50…+100 %, clipped)</text>` +
+      `<text x="${W - 6}" y="${gy(0) - 4}" text-anchor="end" font-size="9" fill="${gridC.replace(gridC, ink)}" opacity="0.6">0%</text>` +
+      `<path d="${gPath(gRail)}" fill="none" stroke="${ink}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.7"/>` +
+      `<path d="${gPath(gPlan)}" fill="none" stroke="${ink}" stroke-width="1.8"/>` +
+      gLast;
+    return;
+  }
+  svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+  const maxV = Math.max(state.mass, p.delivered) * 1.08 || 1;
+  const yv = v => H - padB - (v / maxV) * (H - padT - padB);
+  let line = "", area = `M ${xv(0)} ${yv(0)}`;
+  p.perYear.forEach((r, i) => {
+    line += (i ? " L " : "M ") + xv(i) + " " + yv(r.cum);
+    area += ` L ${xv(i)} ${yv(r.cum)}`;
+  });
+  area += ` L ${xv(p.perYear.length - 1)} ${yv(0)} Z`;
+  const tgt = yv(state.mass);
+  const doneIdx = p.perYear.findIndex(r => r.cum >= state.mass - 1e-9);
+  svg.innerHTML =
+    `<path d="${area}" fill="${accent}" opacity="0.12"/>` +
+    `<path d="${line}" fill="none" stroke="${accent}" stroke-width="2"/>` +
+    `<line x1="0" y1="${tgt}" x2="${W}" y2="${tgt}" stroke="${ink}" stroke-width="1" stroke-dasharray="5 4" opacity="0.7"/>` +
+    `<text x="6" y="${tgt - 5}" font-size="11" fill="${ink}">target ${fmt(state.mass)} t</text>` +
+    (doneIdx >= 0
+      ? `<circle cx="${xv(doneIdx)}" cy="${yv(p.perYear[doneIdx].cum)}" r="4.5" fill="${accent}" stroke="var(--surface-1)" stroke-width="2"/>` +
+        `<text x="${Math.min(xv(doneIdx) + 8, W - 90)}" y="${Math.max(12, yv(p.perYear[doneIdx].cum) - 8)}" font-size="11" font-weight="600" fill="${ink}">reached ${p.perYear[doneIdx].y}</text>`
+      : `<text x="${W - 6}" y="${yv(p.delivered) - 6}" text-anchor="end" font-size="11" font-weight="600" fill="${ink}">${fmtT(p.delivered)} by ${state.y1} — short of target</text>`);
+}
+
+function renderTable(p) {
+  const t = $("planTable");
+  let h = "<thead><tr><th>Year</th>";
+  for (const l of state.landers) h += `<th>${l.name}</th>`;
+  h += "<th>Tonnes</th>" + (p.curve ? "<th>Rail t/yr</th>" : "") + "<th>Cumulative</th></tr></thead><tbody>";
+  for (const r of p.perYear) {
+    h += `<tr><td>${r.y}</td>`;
+    for (const l of state.landers) h += `<td>${r.flights[l.id] || 0}</td>`;
+    h += `<td>${fmt(r.tons)}</td>` + (p.curve ? `<td>${fmt(r.need)}</td>` : "") + `<td>${fmt(r.cum)}</td></tr>`;
+  }
+  h += `<tr><td><b>Total</b></td>`;
+  for (const l of state.landers) h += `<td><b>${p.totals[l.id] || 0}</b></td>`;
+  h += `<td><b>${fmt(p.delivered)}</b></td>` + (p.curve ? "<td></td>" : "") + `<td></td></tr></tbody>`;
+  t.innerHTML = h;
+}
+
+function renderAssumptions() {
+  const tb = $("assumpTable").querySelector("tbody");
+  tb.innerHTML = "";
+  for (const l of state.landers) {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td class="nm"><span class="swatch" style="background:${landerColor(l)}"></span> ${l.name}</td>` +
+      `<td style="text-align:center"><input type="checkbox" ${l.on ? "checked" : ""} data-id="${l.id}" data-f="on" aria-label="Enable ${l.name}"></td>` +
+      `<td><input type="number" step="0.05" min="0.05" value="${l.payload}" data-id="${l.id}" data-f="payload"></td>` +
+      `<td><input type="number" step="1" min="${Y_MIN}" max="${Y_MAX}" value="${l.first}" data-id="${l.id}" data-f="first"></td>` +
+      `<td><input type="number" step="1" min="${Y_MIN}" max="${Y_MAX}" value="${l.last || ""}" placeholder="—" data-id="${l.id}" data-f="last" title="Retirement year — no flights after this year (blank = never)"></td>` +
+      `<td><input type="number" step="1" min="1" max="60" value="${l.max}" data-id="${l.id}" data-f="max"></td>` +
+      `<td><input type="number" step="1" min="0" max="20" value="${l.min || 0}" data-id="${l.id}" data-f="min" title="Manifest floor — flights flown every year regardless of tonnage demand (scenario-curve mode)"></td>` +
+      `<td><input type="number" step="1" min="1" max="15" value="${l.rampYears}" data-id="${l.id}" data-f="rampYears"></td>` +
+      `<td style="text-align:left"><span class="chip ${l.tier}">${TIERS[l.tier].label}</span></td>` +
+      `<td class="note">${l.note}</td>`;
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const l = state.landers.find(x => x.id === inp.dataset.id);
+      if (inp.dataset.f === "on") l.on = inp.checked;
+      else l[inp.dataset.f] = Number(inp.value);
+      state.preset = null;
+      update(false);
+    });
+  });
+}
+
+/* ================= update loop ================= */
+
+function update(reAssump = true) {
+  if (state.y1 < state.y0) state.y1 = state.y0;
+  const p = computePlan();
+  renderControls();
+  renderHero(p);
+  renderEquiv();
+  renderFleet(p);
+  renderTimeline(p);
+  renderTable(p);
+  if (reAssump) renderAssumptions();
+  save();
+  window._plan = p;
+}
+
+/* ================= events ================= */
+
+function setAnnual(M) {
+  state.preset = null;
+  state.demand = "curve";
+  // anchor 2030/2040 to a remembered base shape so a low slider excursion can't
+  // permanently ratchet them down (clamps apply per-set, never accumulate)
+  if (!state.railsBase) {
+    state.railsBase = state.rails && state.rails.r55
+      ? { r30: state.rails.r30, r40: state.rails.r40 }
+      : { r30: 10, r40: Math.max(10, Math.round(M / 5)) };
+  }
+  const b = state.railsBase;
+  const r40 = Math.min(b.r40, M), r30 = Math.min(b.r30, r40);
+  state.rails = { r30, r40, r55: M };
+  state.mass = M;
+}
+$("mass").addEventListener("change", e => { setAnnual(Math.max(1, Number(e.target.value) || 500)); update(); });
+$("massSlider").addEventListener("input", e => {
+  const v = Math.round(Math.pow(10, e.target.value / 100 * 4));
+  setAnnual(Math.max(1, v));
+  $("mass").value = state.mass;
+  update();
+});
+$("y0").addEventListener("change", e => { state.y0 = Number(e.target.value); update(); });
+$("y1").addEventListener("change", e => { state.y1 = Number(e.target.value); update(); });
+$("modePaced").addEventListener("click", () => { state.mode = "paced"; update(); });
+$("modeMax").addEventListener("click", () => { state.mode = "max"; update(); });
+$("modeJit").addEventListener("click", () => { state.mode = "jit"; update(); });
+$("resetBtn").addEventListener("click", () => {
+  state = { mass: 500, y0: 2026, y1: 2055, mode: "paced", preset: null, theme: state.theme,
+            demand: "curve", rails: { r30: 10, r40: 100, r55: 500 }, railsBase: null,
+            landers: JSON.parse(JSON.stringify(DEFAULT_LANDERS)) };
+  update();
+});
+$("copyBtn").addEventListener("click", e => {
+  e.preventDefault(); e.stopPropagation();
+  const p = window._plan; if (!p) return;
+  let s = "Year\t" + state.landers.map(l => l.name).join("\t") + "\tTonnes\tCumulative\n";
+  for (const r of p.perYear) s += r.y + "\t" + state.landers.map(l => r.flights[l.id] || 0).join("\t") + "\t" + r.tons.toFixed(2) + "\t" + r.cum.toFixed(2) + "\n";
+  navigator.clipboard.writeText(s);
+  e.target.textContent = "Copied ✓";
+  setTimeout(() => e.target.textContent = "Copy TSV", 1500);
+});
+$("themeBtn").addEventListener("click", () => {
+  state.theme = state.theme === "auto" ? "light" : state.theme === "light" ? "dark" : "auto";
+  applyTheme(); update(false);
+});
+function applyTheme() {
+  const r = document.documentElement;
+  if (state.theme === "auto") r.removeAttribute("data-theme");
+  else r.setAttribute("data-theme", state.theme);
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") { hideTip(); $("refpanel").style.display = "none"; } });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => update(false));
+let _rsz; addEventListener("resize", () => { clearTimeout(_rsz); _rsz = setTimeout(() => update(false), 200); });
+
+const qsp = new URLSearchParams(location.search);
+const qsTheme = qsp.get("theme");
+if (qsTheme === "light" || qsTheme === "dark") state.theme = qsTheme;
+if (["paced","max","jit"].includes(qsp.get("mode"))) state.mode = qsp.get("mode");
+if (PRESETS[qsp.get("preset")]) presetState(qsp.get("preset"));
+applyTheme();
+update();
+const refYear = Number(qsp.get("refyear"));
+if (refYear) {
+  const row = window._plan && window._plan.perYear.find(r => r.y === refYear);
+  if (row) showRefs(row);
+}
+</script>
+</body>
+</html>

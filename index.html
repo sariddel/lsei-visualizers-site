@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LSEI Scenario Visualizers</title>
+<style>
+  :root{--bg:#0f1115;--bar:#181b22;--fg:#e6e8ee;--muted:#9aa3b2;--accent:#4f8cff;--border:#2a2f3a}
+  @media (prefers-color-scheme: light){:root{--bg:#fff;--bar:#f4f5f7;--fg:#1a1d24;--muted:#5b6473;--border:#dde1e8}}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  body{display:flex;flex-direction:column}
+  nav{display:flex;align-items:center;gap:4px;padding:0 12px;background:var(--bar);border-bottom:1px solid var(--border);height:44px;flex:0 0 auto}
+  nav .brand{font-weight:600;margin-right:16px;color:var(--muted)}
+  nav button{background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:12px 14px;font:inherit;cursor:pointer}
+  nav button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+  nav button:hover{color:var(--fg)}
+  nav .spacer{flex:1}
+  nav a{color:var(--muted);font-size:12px;text-decoration:none}
+  nav a:hover{color:var(--fg)}
+  main{flex:1 1 auto;position:relative;min-height:0}
+  iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+  iframe[hidden]{display:none}
+</style>
+</head>
+<body>
+<nav role="tablist">
+  <span class="brand">LSEI Scenario Visualizers</span>
+  <button role="tab" data-tab="landed" aria-selected="true">Landed Mass</button>
+  <button role="tab" data-tab="power" aria-selected="false">Power Architecture</button>
+  <span class="spacer"></span>
+  <a id="open" href="landed_mass_visualizer.html" target="_blank" rel="noopener">Open tab in own window ↗</a>
+</nav>
+<main>
+  <iframe id="landed" src="landed_mass_visualizer.html" title="Landed mass visualizer"></iframe>
+  <iframe id="power" title="Power architecture visualizer" hidden></iframe>
+</main>
+<script>
+(function(){
+  const src={landed:'landed_mass_visualizer.html',power:'power_architecture_visualizer.html'};
+  const tabs=[...document.querySelectorAll('[role=tab]')];
+  const open=document.getElementById('open');
+  function show(id,push){
+    tabs.forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tab===id)));
+    for(const k in src){const f=document.getElementById(k);
+      if(k===id){if(!f.src)f.src=src[k];f.hidden=false;}else f.hidden=true;}
+    open.href=src[id];
+    if(push)history.replaceState(null,'','#'+id);
+    try{localStorage.setItem('lsei-tab',id)}catch(e){}
+  }
+  tabs.forEach(t=>t.addEventListener('click',()=>show(t.dataset.tab,true)));
+  let init=location.hash.replace('#','');
+  if(!src[init]){try{init=localStorage.getItem('lsei-tab')}catch(e){}}
+  show(src[init]?init:'landed',false);
+  window.addEventListener('hashchange',()=>{const h=location.hash.replace('#','');if(src[h])show(h,false);});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Power Architecture Visualizer — LSEI Scenario Trades</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    /* categorical slots, fixed canonical order (validated adjacency: blue,green,magenta,yellow,aqua,orange) */
+    --c-lr1:      #2a78d6;
+    --c-vsat:     #e87ba4;
+    --c-argonaut: #eda100;
+    --c-lglite:   #1baf7a;
+    --c-zeno:     #eb6834;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --c-lr1:      #3987e5;
+        --c-vsat:     #d55181;
+      --c-argonaut: #c98500;
+      --c-lglite:   #199e70;
+      --c-zeno:     #d95926;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+    --c-lr1:      #3987e5;
+    --c-vsat:     #d55181;
+    --c-argonaut: #c98500;
+    --c-lglite:   #199e70;
+    --c-zeno:     #d95926;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink-1);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 20px clamp(12px, 3vw, 40px) 60px;
+  }
+  h1 { font-size: 24px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; max-width: 76ch; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .topbtns { display: flex; gap: 8px; }
+  button, select, input { font: inherit; color: inherit; }
+  .ghostbtn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    padding: 5px 10px; cursor: pointer; color: var(--ink-2); text-decoration: none; display: inline-block;
+  }
+  .ghostbtn:hover { border-color: var(--baseline); color: var(--ink-1); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: flex-end; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .ctl input[type=number], .ctl select {
+    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 8px; min-width: 90px;
+  }
+  .ctl input[type=range] { width: 200px; accent-color: var(--c-lr1); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 6px 12px; cursor: pointer; color: var(--ink-2); }
+  .seg button.on { background: var(--ink-1); color: var(--surface-1); }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .preset { border: 1px solid var(--border); background: none; border-radius: 999px; padding: 5px 12px; cursor: pointer; color: var(--ink-2); }
+  .preset.on { border-color: var(--ink-1); color: var(--ink-1); font-weight: 600; }
+  .preset-desc { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+  .hero { display: flex; flex-wrap: wrap; gap: 24px 44px; align-items: center; }
+  .hero .big { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .hero .big small { font-size: 20px; font-weight: 600; color: var(--ink-2); }
+  .hero .stat { min-width: 120px; }
+  .hero .stat .v { font-size: 26px; font-weight: 650; }
+  .hero .stat .k { color: var(--muted); font-size: 12px; }
+  .verdict { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 13px; border: 1px solid var(--border); }
+  .verdict.ok  { color: var(--good); }
+  .verdict.bad { color: var(--critical); }
+  .evsplit { flex: 1 1 320px; min-width: 280px; }
+  .evbar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; margin: 6px 0; }
+  .evbar div { min-width: 3px; }
+  .evkey { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
+  .evhead { font-size: 12px; color: var(--muted); }
+
+  /* mass cross-reference strip */
+  .xref { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grid); }
+  .xref .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .xref select, .xref input { background: var(--page); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
+  .xref input { width: 90px; }
+  .xrefbarwrap { flex: 1 1 260px; min-width: 220px; height: 12px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--page); }
+  .xrefbar { height: 100%; background: var(--c-lr1); min-width: 2px; }
+  .xref .pct { font-weight: 700; font-size: 15px; }
+  .xref .note { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+
+  .chip { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; border-radius: 4px; padding: 2px 6px; vertical-align: 1px; }
+  .chip.DEMONSTRATED { background: #2e7d32; color: #fff; }
+  .chip.CONTRACTED   { background: #2f79c7; color: #fff; }
+  .chip.ANNOUNCED    { background: #e8a33d; color: #3a2a00; }
+  .chip.TARGET       { background: #e4711e; color: #fff; }
+  .chip.SUPERSEDED   { background: #757575; color: #fff; }
+  .chip.CONCEPT      { background: #9e9e9e; color: #fff; }
+
+  .equiv { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .ecard {
+    flex: 1 1 150px; min-width: 150px; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; display: flex; flex-direction: column; gap: 6px; background: var(--page);
+  }
+  .ecard .figwrap { height: 158px; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--baseline); }
+  .ecard .cnt { font-size: 26px; font-weight: 700; margin-top: 8px; }
+  .ecard .cnt small { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .ecard .nm { font-weight: 600; font-size: 13px; }
+  .ecard .meta { color: var(--muted); font-size: 12px; }
+  .ecard .masshl { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+
+  .fleetrow { padding: 12px 0; border-top: 1px solid var(--grid); }
+  .fleetrow:first-of-type { border-top: 0; }
+  .fleethead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; vertical-align: -1px; }
+  .fleethead .nm { font-weight: 650; }
+  .fleethead .n { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .icongrid { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end; }
+  .icongrid svg { display: block; }
+  .unitnote { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .zero { color: var(--muted); font-size: 12px; font-style: italic; }
+
+  .tl-scroll { overflow-x: auto; padding-bottom: 8px; }
+  .tl-inner { display: inline-block; min-width: 100%; }
+  .tl-cols { display: flex; align-items: stretch; gap: 0; height: 380px; }
+  .tl-col {
+    width: 76px; flex: 0 0 76px; display: flex; flex-direction: column; justify-content: flex-end;
+    align-items: center; gap: 3px; padding: 6px 4px; border-left: 1px solid var(--grid);
+    cursor: default; position: relative; height: 100%;
+  }
+  .tl-col:hover, .tl-col:focus-visible { background: color-mix(in oklab, var(--ink-1) 5%, transparent); outline: none; }
+  .tl-col .plus { font-size: 11px; color: var(--ink-2); }
+  .tl-col .stack { display: flex; flex-direction: column-reverse; flex-wrap: wrap; align-content: center; max-height: 296px; gap: 3px; }
+  .tl-col .firsts { position: absolute; top: 4px; left: 1px; right: 1px; font-size: 9px; line-height: 1.35; text-align: center; pointer-events: none; }
+  .tl-years { display: flex; border-top: 1px solid var(--baseline); }
+  .tl-year { width: 76px; flex: 0 0 76px; text-align: center; font-size: 12px; color: var(--ink-2); padding: 4px 0 0; font-variant-numeric: tabular-nums; }
+  .tl-year .tons { display: block; font-size: 11px; color: var(--muted); }
+  .tl-year .mark { display: block; font-size: 10px; margin-top: 3px; line-height: 1.5; }
+  .legendrow { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 10px; font-size: 12px; color: var(--ink-2); align-items: flex-end; }
+  .legendrow .lgi { display: inline-block; vertical-align: bottom; margin-right: 4px; }
+  .tl-col svg, .icongrid svg, .legendrow svg, .figwrap svg { filter: drop-shadow(0 1px 1.2px rgba(0,0,0,0.45)); }
+  .legendrow span { white-space: nowrap; }
+  #cumwrap { margin-top: 4px; }
+  #cumsvg { display: block; }
+
+  details summary { cursor: pointer; color: var(--ink-2); font-weight: 600; margin-bottom: 8px; }
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  th, td { padding: 4px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .assump table input[type=number] { width: 70px; background: var(--page); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; text-align: right; }
+  .assump td.nm { font-weight: 600; white-space: nowrap; }
+  .assump .note { color: var(--ink-2); font-size: 12px; max-width: 46ch; text-align: left; }
+  .assump td, .assump th { vertical-align: top; }
+  .prov { color: var(--muted); font-size: 12px; margin-top: 14px; max-width: 104ch; }
+
+  #refpanel {
+    position: fixed; right: 16px; top: 64px; z-index: 20; display: none;
+    width: min(440px, 92vw); max-height: 78vh; overflow-y: auto;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+  }
+  #refpanel h3 { margin: 0 0 6px; font-size: 15px; }
+  #refpanel .rv { border-top: 1px solid var(--grid); padding: 9px 0; font-size: 13px; }
+  #refpanel .rv:first-of-type { border-top: 0; }
+  #refpanel .basis { color: var(--ink-2); font-size: 12px; margin: 4px 0 5px; }
+  #refpanel .reflinks { font-size: 12px; line-height: 1.7; }
+  #refpanel .reflinks a { color: var(--c-lr1); text-decoration: none; }
+  #refpanel .reflinks a:hover { text-decoration: underline; }
+  .tl-col { cursor: pointer; }
+
+  #tip {
+    position: fixed; z-index: 10; pointer-events: none; display: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); max-width: 280px;
+  }
+  #tip .t { font-weight: 700; margin-bottom: 3px; }
+  #tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-2); }
+  #tip .r b { color: var(--ink-1); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>What does <span id="titleKw">100&nbsp;kW</span> on the Moon take?</h1>
+    <p class="sub">Turn a surface-power assumption into hardware: pick kilowatts and a window, and see how many
+    units of each power system that implies, what they weigh, and whether your landed-mass assumption can carry them.
+    Roster = what is documented in the Moon Base / Artemis program of record + ESA Argonaut, nothing speculative —
+    every number is editable, placeholders are flagged.</p>
+  </div>
+  <div class="topbtns">
+    <a class="ghostbtn" href="landed_mass_visualizer.html">← Landed mass</a>
+    <button class="ghostbtn" id="themeBtn" title="Cycle theme">Theme: auto</button>
+  </div>
+</div>
+
+<section class="card">
+  <div class="controls">
+    <div class="ctl">
+      <label for="kw">Power (kW continuous, at 2055)</label>
+      <input type="number" id="kw" min="1" max="10000" step="1" value="100">
+    </div>
+    <div class="ctl">
+      <label for="kwSlider">&nbsp;</label>
+      <input type="range" id="kwSlider" min="0" max="100" value="50" aria-label="Power slider (log scale 1–10,000 kW)">
+    </div>
+    <div class="ctl">
+      <label for="y0">From</label>
+      <select id="y0"></select>
+    </div>
+    <div class="ctl">
+      <label for="y1">To (deadline)</label>
+      <select id="y1"></select>
+    </div>
+    <div class="ctl">
+      <label>Pacing</label>
+      <span class="seg" role="group" aria-label="Pacing mode" id="pacingSeg">
+        <button id="modePaced" class="on" title="Build capacity continuously across the window">Build steadily</button>
+        <button id="modeMax" title="Deploy everything at full cadence until the target is met">As fast as possible</button>
+        <button id="modeJit" title="Defer as late as the deadline allows — consolidates onto the biggest units">Fewest units</button>
+      </span>
+    </div>
+    <div class="ctl">
+      <label>Scenario state (sets kW, window &amp; roster from the frozen scenarios — edit anything after)</label>
+      <span class="presets" id="presets"></span>
+    </div>
+    <div class="ctl"><label>&nbsp;</label><button class="ghostbtn" id="resetBtn">Reset all</button></div>
+  </div>
+  <div class="preset-desc" id="presetDesc"></div>
+</section>
+
+<section class="card">
+  <h2>Year by year <span style="font-weight:400;font-size:12px;color:var(--muted)">— hover for numbers, click a column for references</span></h2>
+  <div class="legendrow" id="tlLegend"></div>
+  <div class="tl-scroll" id="tlScroll">
+    <div class="tl-inner">
+      <div class="tl-cols" id="tlCols"></div>
+      <div class="tl-years" id="tlYears"></div>
+      <div id="cumwrap"><svg id="cumsvg" role="img" aria-label="Cumulative installed power by year against the target"></svg></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="hero">
+    <div>
+      <div class="big"><span id="heroKw"></span><small id="heroUnitLbl"> kW</small></div>
+      <div class="evhead" id="heroWindow"></div>
+    </div>
+    <div class="stat"><div class="v" id="heroUnits"></div><div class="k">units deployed</div></div>
+    <div class="stat"><div class="v" id="heroMass"></div><div class="k">power hardware, tonnes</div></div>
+    <div class="stat"><div class="v" id="heroDone"></div><div class="k">target reached</div></div>
+    <div class="stat"><span class="verdict" id="verdict"></span></div>
+    <div class="evsplit">
+      <div class="evhead" id="evHeadline"></div>
+      <div class="evbar" id="evBar" role="img" aria-label="Share of kilowatts by evidence tier of the supplying unit"></div>
+      <div class="evkey" id="evKey"></div>
+    </div>
+  </div>
+  <div class="xref">
+    <span class="lbl">Landed-mass cross-check</span>
+    <select id="xrefSel" aria-label="Landed-mass budget to compare against">
+      <option value="S1">S1</option>
+      <option value="S2">S2</option>
+      <option value="S3">S3</option>
+      <option value="custom">Custom…</option>
+    </select>
+    <input type="number" id="xrefCustom" min="1" step="1" value="100" style="display:none" aria-label="Custom landed-mass budget in tonnes">
+    <span class="pct" id="xrefPct"></span>
+    <div class="xrefbarwrap"><div class="xrefbar" id="xrefBar"></div></div>
+    <span class="note" id="xrefNote"></span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>If it all came from one system</h2>
+  <div class="equiv" id="equiv"></div>
+  <div class="unitnote">Silhouettes at true relative height (solar towers are tall and light; reactors squat and heavy). Counts and tonnage are for the full target on that system alone, ignoring availability dates.</div>
+</section>
+
+<section class="card">
+  <h2>Expected build-out over the window</h2>
+  <div class="unitnote" id="unitNote"></div>
+  <div id="fleet"></div>
+  <div class="unitnote" id="mixRule"></div>
+</section>
+
+<section class="card">
+  <details>
+    <summary>Table view — units, kW and tonnes per year <button class="ghostbtn" id="copyBtn" style="margin-left:10px">Copy TSV</button></summary>
+    <div style="overflow-x:auto"><table id="planTable"></table></div>
+  </details>
+</section>
+
+<section class="card assump">
+  <h2>Assumptions (editable)</h2>
+  <div style="overflow-x:auto">
+  <table id="assumpTable">
+    <thead><tr>
+      <th>Unit</th><th>On</th><th>kW</th><th>Mass (t)</th><th>First unit</th><th>Max /yr</th><th>Ramp (yrs)</th><th style="text-align:left">Evidence</th><th style="text-align:left">Basis</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+  <p class="prov" id="provText">Loading…</p>
+</section>
+
+<div id="tip" role="tooltip"></div>
+<div id="refpanel" role="dialog" aria-label="Year references"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- LR-1 100 kWe: core column + angled radiator panels -->
+    <symbol id="ic-lr1" viewBox="0 0 30 26">
+      <rect x="13" y="6" width="4" height="17" rx="1"/>
+      <circle cx="15" cy="4.5" r="2.5"/>
+      <path d="M12 9 L2 15 L2 19 L12 14 Z"/>
+      <path d="M18 9 L28 15 L28 19 L18 14 Z"/>
+      <rect x="9" y="23" width="12" height="2.6"/>
+    </symbol>
+    <!-- VSAT: 10 m mast + vertical panel -->
+    <symbol id="ic-vsat" viewBox="0 0 22 30">
+      <rect x="10" y="3" width="2" height="24"/>
+      <rect x="4" y="3" width="14" height="14" rx="1.5"/>
+      <path d="M6 27 L16 27 L11 23 Z"/>
+    </symbol>
+    <!-- Argonaut power package: boxy lander body on legs + mast -->
+    <symbol id="ic-argonaut" viewBox="0 0 24 22">
+      <rect x="6" y="8" width="12" height="9" rx="1.5"/>
+      <rect x="11.2" y="3" width="1.6" height="5"/><circle cx="12" cy="2.6" r="1.8"/>
+      <path d="M7 16 L3.5 21 L6 21 L9 17 Z"/><path d="M17 16 L20.5 21 L18 21 L15 17 Z"/>
+    </symbol>
+    <!-- LunaGrid-Lite: small box + cable run -->
+    <symbol id="ic-lglite" viewBox="0 0 20 10">
+      <rect x="1" y="2" width="8" height="7" rx="1.5"/>
+      <path d="M9 5 Q13 3 15 6 Q17 9 19 7" fill="none" stroke-width="1.6" stroke="currentColor"/>
+    </symbol>
+    <!-- Zeno RPS: small finned cylinder -->
+    <symbol id="ic-zeno" viewBox="0 0 16 10">
+      <rect x="4" y="2" width="8" height="6" rx="1.5"/>
+      <rect x="1" y="3" width="3" height="1.2"/><rect x="1" y="5.8" width="3" height="1.2"/>
+      <rect x="12" y="3" width="3" height="1.2"/><rect x="12" y="5.8" width="3" height="1.2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<script>
+"use strict";
+
+/* ================= data ================= */
+
+const Y_MIN = 2026, Y_MAX = 2055, Y_SCAN = 2060;
+
+const TIERS = {
+  DEMONSTRATED: { label: "Demonstrated" },
+  CONTRACTED:   { label: "Contracted" },
+  ANNOUNCED:    { label: "Announced" },
+  TARGET:       { label: "Target" },
+  SUPERSEDED:   { label: "Superseded" },
+  CONCEPT:      { label: "Concept" },
+};
+const TIER_ORDER = ["DEMONSTRATED","CONTRACTED","ANNOUNCED","TARGET","SUPERSEDED","CONCEPT"];
+const TIER_HEX = { DEMONSTRATED:"#2e7d32", CONTRACTED:"#2f79c7", ANNOUNCED:"#e8a33d", TARGET:"#e4711e", SUPERSEDED:"#757575", CONCEPT:"#9e9e9e" };
+
+/* Unit roster — ONLY what is documented in the Moon Base / Artemis program of record
+   (+ ESA Argonaut). kw = output per unit; mass = launched mass in tonnes. Published
+   numbers where they exist; placeholders are flagged loudly in the notes.
+   NOT modeled (no published kW or mass, or study-money only): VSAT-XL, Kilopower,
+   MW-class concepts, Blue Alchemist, power beaming (Lockheed ACO / Star Catcher),
+   DARPA LunA-10 concepts (LUNARSABER etc.), Honda RFC. See the provenance note. */
+const DEFAULT_UNITS = [
+  { id:"lr1", name:"LR-1 lunar reactor (Moon Base Phase 2)", kw:100, mass:15, first:2031, max:1, rampYears:1, on:true,
+    tier:"TARGET", hm:7,
+    note:"THE documented Moon Base power emplacement: NASA–DOE MOU (2026-01-13) ≥100 kWe closed-Brayton TRISO reactor, 'up to 15 t' lander allocation (directive 2025-08-04), official 'LR-1 lands 2030'. Hedge to carry: NSTM-3 (2026-04-14) recast to mid-power ≥20 kWe, ≤2 designs selected by Apr 2027, ≥1 extensible to 100 kWe. NO contractor as of 2026-07-20 (AFPP deactivated 2026-03-26; SR-1/LR-1 integrated plan due ~2026-07-21, not yet public) — first unit here risk-adjusted to 2031." },
+  { id:"vsat", name:"VSAT vertical solar array (10 kW)", kw:10, mass:0.12, first:2028, max:2, rampYears:2, on:true, pushYears:[2028],
+    tier:"ANNOUNCED", hm:12,
+    note:"NASA VSAT program: 10 kW, ~120 kg design (NASA TM-20210011743). Two funded hardware lines, both TVAC-complete TRL-6: Astrobotic/Redwire VSAT and Honeybee (Blue Origin) LAMPS. No flight contract yet — the funnel is NASA's LEIA BAA (draft closed 2026-07-17, awards Q1 FY27) + the CLPS 'power & avionics demo' previewed 2026-06-30; Astrobotic still quotes first LunaGrid 2028. ARRAY ONLY: >~90%-lit polar siting assumed, night storage NOT included — no storage element is separately documented in the plan yet." },
+  { id:"argonaut", name:"ESA Argonaut power package", kw:2, mass:0.5, first:2031, max:1, rampYears:1, on:true, pushYears:[2031, 2033],
+    tier:"CONTRACTED", hm:3,
+    note:"Argonaut Mission 1 (lander contracted, TAS-led; ~end-2030 launch, 2031 ops) carries an 'energy generation and storage system' designed for 5-yr day/night survival. kW AND mass NOT PUBLISHED — 2 kW / 0.5 t are placeholders inside the 1.5 t cargo envelope; edit freely. Mission 2 2033." },
+  { id:"lglite", name:"LunaGrid-Lite demo (1 kW)", kw:1, mass:0.05, first:2027, max:1, rampYears:1, on:true, cap:1, pushYears:[2027],
+    tier:"CONTRACTED", hm:1.5,
+    note:"Astrobotic tethered power demo: 1 kW AC at high voltage over a 500 m cable to a 4U CubeRover (as-built CDR config; the 2023 award said 1 km/6U). $34.6M Tipping Point; CDR complete 2025-08; flight-ready but ride unconfirmed (Griffin-1 NET Nov 2026 manifest doesn't list it) — realistic 2026-27. Mass not published; 0.05 t is an estimate. ONE-OFF demo: capped at a single unit." },
+  { id:"zeno", name:"Zeno Harmonia RPS (night survival)", kw:0.3, mass:0.04, first:2028, max:2, rampYears:2, on:true, pushYears:[2028],
+    tier:"CONTRACTED", hm:1,
+    note:"Americium-241 Stirling radioisotope system: $15M NASA Tipping Point (2023) + ACO selection (Jul 2026), FDR complete 2026-04-21, Orano Am-241 supply deal, flight-qual 'beginning 2028'. Output NOT PUBLISHED — hundreds of watts class, 0.3 kW / 0.04 t are estimates. This is night-survival power for assets, not grid power." },
+];
+
+/* Source links per unit (kept out of saved state; looked up by id at render).
+   All URLs web-verified 2026-07-20. */
+const REFS = {
+  lr1: [
+    { t: "NASA FSP directive — ≥100 kWe / ≤15 t / Q1 FY30 (2025-08-04)", u: "https://www.nasa.gov/wp-content/uploads/2025/08/nasa-fsp-directive-aug42.pdf" },
+    { t: "NASA–DOE MOU — lunar surface reactor by 2030 (2026-01-13)", u: "https://www.nasa.gov/news-release/nasa-department-of-energy-to-develop-lunar-surface-reactor-by-2030/" },
+    { t: "AFPP solicitation deactivated — no contractor (2026-03-26)", u: "https://www.highergov.com/contract-opportunity/fission-surface-power-system-second-draft-announ-80grc025fsps-second-draft-afpp-p-1caa0/" },
+    { t: "The Register — NSTM-3: mid-power ≥20 kWe, ≤2 designs by Apr 2027 (2026-04-15)", u: "https://www.theregister.com/2026/04/15/national_initiative_for_american_space/" },
+  ],
+  vsat: [
+    { t: "NASA TM-20210011743 — VSAT 10 kW / ~120 kg design (2021)", u: "https://ntrs.nasa.gov/api/citations/20210011743/downloads/NASA-TM-20210011743.pdf" },
+    { t: "SatNews — Astrobotic VSAT enters TVAC at JSC (2024-07)", u: "https://news.satnews.com/2024/07/20/astrobotics-lunagrids-vertical-solar-array-technology-vsat-enters-tvac/" },
+    { t: "Blue Origin — Honeybee LAMPS deployed at JSC (TRL 6)", u: "https://www.blueorigin.com/news/honeybee-robotics-deploys-lamps-at-nasa-johnson-space-center" },
+    { t: "NASA — CLPS power demo previewed + LEIA funnel (2026-06-30)", u: "https://www.nasa.gov/news-release/nasa-awards-more-moon-base-science-previews-new-opportunities/" },
+  ],
+  argonaut: [
+    { t: "ESA — Argonaut lunar lander (energy generation & storage payload)", u: "https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/Argonaut_a_first_European_lunar_lander" },
+    { t: "European Spaceflight — Argonaut M1 targets 2031", u: "https://europeanspaceflight.com/esa-targets-2031-for-first-argonaut-lunar-lander-mission/" },
+  ],
+  lglite: [
+    { t: "Astrobotic — LunaGrid-Lite CDR complete, flight model underway (2025-08)", u: "https://www.astrobotic.com/lunagrid-lite-completes-critical-design-review-flight-model-underway/" },
+    { t: "Astrobotic — $34.6M NASA Tipping Point power-demo award (2023-07)", u: "https://www.astrobotic.com/astrobotic-wins-34-6m-for-power-demo-mission-on-the-moon/" },
+  ],
+  zeno: [
+    { t: "Zeno Power — Harmonia FDR complete (2026-04-21)", u: "https://www.zenopower.com/announcements/zeno-power-completes-final-design-review-for-space-nuclear-battery" },
+    { t: "Orano — Am-241 supply agreement with Zeno (2025-09)", u: "https://www.orano.group/usa/en/our-news/news-releases/2025/zeno-power-and-orano-unlock-americium-241-supply-through-strategic-agreement-to-fuel-space-nuclear-batteries" },
+  ],
+};
+
+/* Scenario power levels — ADJUSTED from the frozen Scenarios.docx rails (Shaun,
+   2026-07-20: "baseline too low; adjust with freedom, ground in agency plans").
+   Frozen values are kept in each description for traceability. Anchors:
+   by 2030 the program of record alone delivers LunaGrid-Lite (1 kW, contracted) +
+   first LEIA/CLPS-demo VSATs (~10-20 kW); LR-1 lands 2030 official / 2031 realistic
+   (100 kWe); NSTM-3 opens a repeat-reactor production window (DOE: up to 4 space
+   reactors in 5 years) from ~2032. */
+const PRESETS = {
+  S1: { label:"S1 · Artemis Trajectory", railsKw:{ r30:10, r40:100, r55:400 }, frozen:"1 / 45 / 150",
+        desc:"Rails per study reconciliation 2026-07-22 [J] (frozen: 1/45/150 — 2040 was 45): 10 kW by 2030 = LunaGrid-Lite + first LEIA-era VSATs; 100 kW by 2040 = the LR-1 unit (2031); 400 kW by 2055 = repeat directive-class units as demand grows + solar.",
+        ov:{ lr1:{first:2031, pushYears:[2031]}, vsat:{max:1} } },
+  S2: { label:"S2 · Mars Pivot", railsKw:{ r30:10, r40:50, r55:100 }, frozen:"1 / 10 / 20",
+        desc:"(Frozen name: Contested Foundations.) Rails per study reconciliation 2026-07-22 [J] (frozen: 1/10/20): 10 kW by 2030 = the contracted demos; 50 kW by 2040 and 100 kW by 2055 carried by solar + the Argonaut package — the mandate-delivered reactor serves the base, not ISRU, and is excluded from this roster (stranded-demand mechanism).",
+        ov:{ lr1:{on:false}, vsat:{max:1} } },
+  S3: { label:"S3 · Commercial Break", railsKw:{ r30:10, r40:200, r55:1000 }, frozen:"1 / 120 / 1,000",
+        desc:"Rails per study reconciliation 2026-07-22 [J] (frozen: 1/120/1,000): common start (10 kW by 2030), then commercial pull — LR-1 from 2031 with repeat units as demand outruns solar (NSTM-3 production capacity), LunaGrid solar at 3 VSAT/yr — 200 kW by 2040, 1,000 kW by 2055.",
+        ov:{ lr1:{first:2031, pushYears:[2031]}, vsat:{max:3} } },
+};
+
+/* Landed-mass rails from the frozen doc (t/yr at epochs) — used only for the
+   landed-mass cross-check budget, integrated over the same window. */
+const LANDED_RAILS = {                  // study reconciliation 2026-07-22 [J]
+  S1: { r30:10, r40:100,  r55:500 },
+  S2: { r30:10, r40:75,   r55:150 },
+  S3: { r30:10, r40:1000, r55:10000 },  // 2055 = stretch
+};
+const S1_PROGRAM = { 2026:0.9, 2027:6.2, 2028:7.4, 2029:6.2, 2030:15, 2031:22, 2032:30, 2033:38, 2034:45, 2035:50 };
+function landedRate(rails, y) {
+  if (y <= 2025) return 0;
+  if (rails.type === "program") {
+    if (S1_PROGRAM[y] !== undefined) return S1_PROGRAM[y];
+    return 50 * Math.pow(1.05, y - 2035);
+  }
+  if (y <= 2030) return rails.r30 * (y - 2025) / 5;
+  if (y <= 2040) return rails.r30 + (rails.r40 - rails.r30) * (y - 2030) / 10;
+  if (y <= 2055) return rails.r40 + (rails.r55 - rails.r40) * (y - 2040) / 15;
+  return rails.r55;
+}
+function landedCumulative(rails, yEnd) {
+  let c = 0;
+  for (let y = 2026; y <= yEnd; y++) c += landedRate(rails, y);
+  return Math.round(c);
+}
+const EPOCHS = [2030, 2040, 2055];
+/* Scenario level curve: linear ramp between the epoch values (from ~0 in 2025),
+   so the build-out is annual rather than lumped at epoch deadlines. */
+function railLevel(railsKw, y) {
+  if (y <= 2025) return 0;
+  if (y <= 2030) return railsKw.r30 * (y - 2025) / 5;
+  if (y <= 2040) return railsKw.r30 + (railsKw.r40 - railsKw.r30) * (y - 2030) / 10;
+  if (y <= 2055) return railsKw.r40 + (railsKw.r55 - railsKw.r40) * (y - 2040) / 15;
+  return railsKw.r55;
+}
+
+/* Documented plan events by year — shown in the click-through references panel. */
+const YEAR_EVENTS = {
+  2026: [{ t:"Moon Base Phase 1 underway — CLPS + tech demos incl. power (FY27-30)", u:"https://www.nasa.gov/moonbase-phases/" }],
+  2027: [{ t:"LEIA BAA awards — vertical solar array + Stirling RPS flight hardware (Q1 FY27)", u:"https://www.ans.org/news/2026-07-01/article-8173/nasa-prepares-to-solicit-moon-surface-power-teases-rtgpowered-moon-rover/" },
+         { t:"LunaGrid-Lite realistic flight window (contracted; ride unconfirmed)", u:"https://www.astrobotic.com/lunagrid-lite-completes-critical-design-review-flight-model-underway/" }],
+  2028: [{ t:"CLPS power & avionics technology demo delivery (previewed 2026-06-30)", u:"https://www.nasa.gov/news-release/nasa-awards-more-moon-base-science-previews-new-opportunities/" },
+         { t:"Astrobotic: first operational LunaGrid quoted for 2028", u:"https://www.techbriefs.com/component/content/article/46981-reliable-power-for-long-term-lunar-surface-operations" },
+         { t:"Zeno Harmonia flight-qual begins", u:"https://www.zenopower.com/announcements/zeno-power-completes-final-design-review-for-space-nuclear-battery" },
+         { t:"SR-1 Freedom orbital reactor launch (Dec 2028) — LR-1 pathfinder", u:"https://www.nasa.gov/mission/space-reactor-1-freedom/" }],
+  2029: [{ t:"Moon Base Phase 2 begins — 'early infrastructure' incl. power-generator emplacement (2029–32)", u:"https://www.nasa.gov/moonbase-phases/" }],
+  2030: [{ t:"LR-1 official landing target (NASA–DOE MOU: surface reactor by 2030)", u:"https://www.nasa.gov/news-release/nasa-department-of-energy-to-develop-lunar-surface-reactor-by-2030/" }],
+  2031: [{ t:"LR-1 realistic first unit (≤2 designs selected Apr 2027 → <3 yr to flight)", u:"https://www.theregister.com/2026/04/15/national_initiative_for_american_space/" },
+         { t:"ESA Argonaut M1 surface ops (launch ~end-2030)", u:"https://europeanspaceflight.com/esa-targets-2031-for-first-argonaut-lunar-lander-mission/" }],
+  2032: [{ t:"Moon Base Phase 2 ends; Phase 3 sustained presence from 2032", u:"https://www.nasa.gov/moonbase-phases/" },
+         { t:"NSTM-3 repeat-reactor window — DOE to assess producing up to 4 space reactors in 5 yrs", u:"https://www.theregister.com/2026/04/15/national_initiative_for_american_space/" }],
+  2033: [{ t:"ESA Argonaut Mission 2 (2033)", u:"https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/Argonaut_a_first_European_lunar_lander" }],
+};
+
+/* ================= state ================= */
+
+const LS_KEY = "lsei-power-arch-v4";
+let state = {
+  kw: 400, y0: 2026, y1: 2055, mode: "paced", preset: null, theme: "auto",
+  demand: "curve", railsKw: { r30: 10, r40: 100, r55: 400 },
+  xref: "S1", xrefCustom: 100,
+  units: JSON.parse(JSON.stringify(DEFAULT_UNITS)),
+};
+try {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+  if (saved && saved.units && saved.units.length === DEFAULT_UNITS.length) state = saved;
+} catch (e) {}
+
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+
+/* ================= model (same allocator as the landed-mass tool, kW for tonnes) ================= */
+
+function cadence(u, y) {
+  if (!u.on || y < u.first) return 0;
+  const k = y - u.first + 1;
+  if (u.rampYears <= 1) return u.max;
+  return Math.min(u.max, Math.max(1, Math.round(k * u.max / u.rampYears)));
+}
+
+/* Per-year deployable caps, honoring each unit's optional lifetime cap given
+   what has already been deployed (`used`). */
+function capsFor(y, used) {
+  const caps = {};
+  for (const u of state.units) {
+    caps[u.id] = Math.max(0, Math.min(cadence(u, y), (u.cap || Infinity) - (used[u.id] || 0)));
+  }
+  return caps;
+}
+function capsKw(caps) {
+  let t = 0;
+  for (const u of state.units) t += (caps[u.id] || 0) * u.kw;
+  return t;
+}
+function consume(used, unitsAdded) {
+  for (const id in unitsAdded) used[id] = (used[id] || 0) + unitsAdded[id];
+}
+/* Max installable kW from year y0 to y1 assuming full consumption each year
+   (upper bound for feasibility), starting from a given deployment history. */
+function maxCapacity(yFrom, yTo, used0) {
+  const used = Object.assign({}, used0);
+  let t = 0;
+  for (let y = yFrom; y <= yTo; y++) {
+    const caps = capsFor(y, used);
+    t += capsKw(caps);
+    consume(used, caps);
+  }
+  return t;
+}
+
+/* gentle=true (scenario-curve mode): never deploy a unit more than 2× the gap —
+   small shortfalls carry forward until the gap grows into a big unit's class. */
+function fillYear(y, need, caps, gentle = false) {
+  if (need <= 1e-9) return { units: {}, kw: 0 };
+  const avail = state.units.filter(u => caps[u.id] > 0);
+  const fa = {}; let ta = 0, na = 0;
+  const capsA = Object.assign({}, caps);
+  for (const u of avail) {
+    while (capsA[u.id] > 0 && need - ta >= u.kw - 1e-9) {
+      fa[u.id] = (fa[u.id] || 0) + 1; capsA[u.id]--; ta += u.kw; na++;
+    }
+  }
+  if (need - ta > 1e-9) {
+    let pick = null;
+    for (let i = avail.length - 1; i >= 0; i--) {
+      const u = avail[i];
+      if (capsA[u.id] > 0 && u.kw >= need - ta) { pick = u; break; }
+    }
+    if (!pick) for (const u of avail) if (capsA[u.id] > 0) { pick = u; break; }
+    if (pick && gentle && pick.kw > 5 && pick.kw > 2 * (need - ta)) pick = null;
+    if (pick) { fa[pick.id] = (fa[pick.id] || 0) + 1; capsA[pick.id]--; ta += pick.kw; na++; }
+  }
+  let cover = null;
+  for (let i = avail.length - 1; i >= 0; i--) {
+    const u = avail[i];
+    if (u.kw >= need - 1e-9) { cover = u; break; }
+  }
+  if (cover && gentle && cover.kw > 5 && cover.kw > 2 * need) cover = null;
+  if (cover && na > 1 && cover.kw <= ta + 1e-9) {
+    const fb = {}; fb[cover.id] = 1;
+    caps[cover.id]--;
+    return { units: fb, kw: cover.kw };
+  }
+  for (const id in caps) caps[id] = capsA[id];
+  return { units: fa, kw: ta };
+}
+
+function computePlan() {
+  const M = state.kw, y0 = state.y0, y1 = state.y1;
+  const years = []; for (let y = y0; y <= y1; y++) years.push(y);
+
+  /* Scenario-curve mode: the frozen rails are LEVELS at epoch deadlines —
+     each year, deploy toward the next epoch's level as capacity allows. */
+  if (state.demand === "curve" && state.railsKw) {
+    const perYear = []; let cum = 0;
+    const used = {};
+    for (const y of years) {
+      const caps = capsFor(y, used);
+      // supply-pushed: documented missions fly on their dates regardless of demand
+      const pushed = {}; let pushKw = 0;
+      for (const u of state.units) {
+        if (u.on && u.pushYears && u.pushYears.includes(y) && caps[u.id] > 0) {
+          pushed[u.id] = (pushed[u.id] || 0) + 1; caps[u.id]--;
+          consume(used, { [u.id]: 1 }); pushKw += u.kw;
+        }
+      }
+      cum += pushKw;
+      // demand-pulled: fill to the level curve, PLUS whatever the remaining years
+      // before the next epoch cannot supply (deadline lookahead — no stranded epochs)
+      const nextEpoch = EPOCHS.find(e => e >= y && e <= y1);
+      let jitNeed = 0;
+      if (nextEpoch) {
+        const tgt = railLevel(state.railsKw, nextEpoch);
+        const futureCap = y < nextEpoch ? maxCapacity(y + 1, nextEpoch, used) : 0;
+        jitNeed = Math.max(0, (tgt - cum) - futureCap);
+      }
+      const need = Math.max(jitNeed, Math.max(0, railLevel(state.railsKw, y) - cum));
+      // gentle sizing between epochs; in an epoch year itself, close the gap with whatever covers it
+      const r = fillYear(y, Math.min(need, capsKw(caps)), caps, y !== nextEpoch);
+      consume(used, r.units);
+      cum += r.kw;
+      const merged = Object.assign({}, pushed);
+      for (const id in r.units) merged[id] = (merged[id] || 0) + r.units[id];
+      perYear.push({ y, units: merged, kw: pushKw + r.kw, level: railLevel(state.railsKw, y) });
+    }
+    let c2 = 0;
+    for (const row of perYear) {
+      c2 += row.kw; row.cum = c2;
+      row.mass = 0;
+      for (const id in row.units) row.mass += row.units[id] * state.units.find(x => x.id === id).mass;
+    }
+    const epochs = EPOCHS.filter(e => e >= y0 && e <= y1).map(e => {
+      const row = perYear.find(r => r.y === e);
+      const tgt = railLevel(state.railsKw, e);
+      return { y: e, need: tgt, got: row ? row.cum : 0, met: row && row.cum >= tgt * 0.995 };
+    });
+    const totals = {}; let totalUnits = 0, totalMass = 0, delivered = 0;
+    for (const u of state.units) totals[u.id] = 0;
+    for (const row of perYear) { delivered += row.kw; for (const id in row.units) { totals[id] += row.units[id]; totalUnits += row.units[id]; } }
+    for (const u of state.units) totalMass += (totals[u.id] || 0) * u.mass;
+    const tierKw = {};
+    for (const u of state.units) {
+      const t = totals[u.id] * u.kw;
+      if (t > 0) tierKw[u.tier] = (tierKw[u.tier] || 0) + t;
+    }
+    return { years, perYear, totals, totalUnits, totalMass, delivered, capWindow: 0,
+             feasible: epochs.every(e => e.met), earliest: null, done: null,
+             modeUsed: "curve", curve: true, epochs, tierKw };
+  }
+
+  const capWindow = maxCapacity(y0, y1, {});
+  let earliest = null;
+  {
+    const used = {}; let cum = 0;
+    for (let y = y0; y <= Y_SCAN; y++) {
+      const caps = capsFor(y, used);
+      cum += capsKw(caps); consume(used, caps);
+      if (cum >= M) { earliest = y; break; }
+    }
+  }
+
+  const feasible = capWindow >= M - 1e-9;
+  const mode = feasible ? state.mode : "max";
+
+  const perYear = []; let delivered = 0;
+  const used = {};
+  if (mode === "max") {
+    for (const y of years) {
+      const caps = capsFor(y, used);
+      if (delivered >= M - 1e-9) { perYear.push({ y, units: {}, kw: 0 }); continue; }
+      const r = fillYear(y, Math.min(M - delivered, capsKw(caps)), caps);
+      consume(used, r.units);
+      delivered += r.kw; perYear.push({ y, units: r.units, kw: r.kw });
+    }
+  } else if (mode === "jit") {
+    for (let i = 0; i < years.length; i++) {
+      const y = years[i];
+      const caps = capsFor(y, used);
+      const futureCap = i + 1 < years.length ? maxCapacity(years[i + 1], y1, used) : 0;
+      const needNow = Math.max(0, (M - delivered) - futureCap);
+      if (needNow <= 1e-9) { perYear.push({ y, units: {}, kw: 0 }); continue; }
+      const r = fillYear(y, Math.min(needNow, capsKw(caps)), caps);
+      consume(used, r.units);
+      delivered += r.kw; perYear.push({ y, units: r.units, kw: r.kw });
+    }
+  } else {
+    const uFrac = M / capWindow;
+    for (const y of years) {
+      const caps = capsFor(y, used);
+      const want = Math.min(M - delivered, uFrac * capsKw(caps));
+      const r = fillYear(y, Math.max(0, want), caps);
+      consume(used, r.units);
+      delivered += r.kw; perYear.push({ y, units: r.units, kw: r.kw });
+    }
+    for (let i = perYear.length - 1; i >= 0 && delivered < M - 1e-9; i--) {
+      const y = perYear[i].y;
+      const caps = capsFor(y, used);
+      for (const u of state.units) {
+        caps[u.id] = Math.max(0, Math.min(caps[u.id], cadence(u, y) - (perYear[i].units[u.id] || 0)));
+      }
+      const r = fillYear(y, M - delivered, caps);
+      consume(used, r.units);
+      for (const id in r.units) perYear[i].units[id] = (perYear[i].units[id] || 0) + r.units[id];
+      perYear[i].kw += r.kw; delivered += r.kw;
+    }
+  }
+
+  let c = 0, done = null;
+  for (const row of perYear) {
+    c += row.kw; row.cum = c;
+    row.mass = 0;
+    for (const id in row.units) row.mass += row.units[id] * state.units.find(x => x.id === id).mass;
+    if (done === null && c >= M - 1e-9) done = row.y;
+  }
+
+  const totals = {}; let totalUnits = 0, totalMass = 0;
+  for (const u of state.units) totals[u.id] = 0;
+  for (const row of perYear) for (const id in row.units) { totals[id] += row.units[id]; totalUnits += row.units[id]; }
+  for (const u of state.units) totalMass += (totals[u.id] || 0) * u.mass;
+  const tierKw = {};
+  for (const u of state.units) {
+    const t = totals[u.id] * u.kw;
+    if (t > 0) tierKw[u.tier] = (tierKw[u.tier] || 0) + t;
+  }
+
+  return { years, perYear, totals, totalUnits, totalMass, delivered, capWindow, feasible, earliest, done, modeUsed: mode, tierKw };
+}
+
+/* ================= formatting ================= */
+
+const fmt = n => n >= 100 ? Math.round(n).toLocaleString("en-US")
+             : n >= 10 ? (Math.round(n * 10) / 10).toLocaleString("en-US")
+             : Math.round(n * 100) / 100;
+const fmtKw = n => fmt(n) + " kW";
+const fmtT = n => fmt(n) + " t";
+
+/* ================= render ================= */
+
+const $ = id => document.getElementById(id);
+const tip = $("tip");
+
+function unitColor(u) { return `var(--c-${u.id})`; }
+
+const VB = { lr1:[30,26], vsat:[22,30], argonaut:[24,22], lglite:[20,10], zeno:[16,10] };
+function icon(u, h) {
+  const vb = VB[u.id];
+  const w = Math.max(8, Math.round(h * vb[0] / vb[1]));
+  return `<svg width="${w}" height="${h}" fill="${unitColor(u)}" color="${unitColor(u)}" aria-hidden="true"><use href="#ic-${u.id}"/></svg>`;
+}
+
+function showRefs(row) {
+  const panel = $("refpanel");
+  let h = `<button class="ghostbtn" id="refClose" style="float:right" aria-label="Close">✕</button>` +
+          `<h3>${row.y} — what deploys, and why</h3>`;
+  const active = state.units.filter(u => (row.units[u.id] || 0) > 0);
+  if (!active.length) {
+    h += `<div class="basis">No deployments this year` +
+         (row.level !== undefined ? ` (epoch level ${fmt(row.level)} kW already met — idle until the next epoch's gap opens)` : "") + `.</div>`;
+  }
+  for (const u of active) {
+    const n = row.units[u.id];
+    h += `<div class="rv"><span class="swatch" style="background:${unitColor(u)}"></span> <b>${u.name}</b> ` +
+         `<span class="chip ${u.tier}">${TIERS[u.tier].label}</span> — ${n} unit${n > 1 ? "s" : ""} · ${fmtKw(n * u.kw)} · ${fmtT(n * u.mass)}` +
+         `<div class="basis">${u.note}</div>`;
+    const rs = REFS[u.id] || [];
+    if (rs.length) h += `<div class="reflinks">` + rs.map(r => `→ <a href="${r.u}" target="_blank" rel="noopener">${r.t}</a>`).join("<br>") + `</div>`;
+    h += `</div>`;
+  }
+  for (const u of state.units) if (u.on && u.first === row.y) {
+    h += `<div class="basis">▲ ${u.name} first unit assumed this year — a risk-adjusted judgment, not a manifest date (see basis above).</div>`;
+  }
+  const ev = YEAR_EVENTS[row.y];
+  if (ev && ev.length) {
+    h += `<div class="rv"><b>Documented plan events, ${row.y}</b><div class="reflinks">` +
+         ev.map(r => `→ <a href="${r.u}" target="_blank" rel="noopener">${r.t}</a>`).join("<br>") + `</div></div>`;
+  }
+  h += `<div class="basis" style="margin-top:8px;border-top:1px solid var(--grid);padding-top:8px">Unit counts are the allocator's output (biggest unit first, final unit best-fit), bounded by availability and cadence — the references support the caps, dates, and masses, not the specific count. Full provenance below the Assumptions table.</div>`;
+  panel.innerHTML = h;
+  panel.style.display = "block";
+  $("refClose").onclick = () => panel.style.display = "none";
+}
+
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.style.display = "block";
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(x + 14, innerWidth - r.width - 10) + "px";
+  tip.style.top = Math.min(y + 14, innerHeight - r.height - 10) + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+function renderControls() {
+  $("kw").value = state.kw;
+  $("kwSlider").value = Math.round(Math.log10(Math.max(1, state.kw)) / 4 * 100);
+  const sel0 = $("y0"), sel1 = $("y1");
+  if (!sel0.options.length) {
+    for (let y = Y_MIN; y <= Y_MAX; y++) { sel0.add(new Option(y, y)); sel1.add(new Option(y, y)); }
+  }
+  sel0.value = state.y0; sel1.value = state.y1;
+  $("modePaced").classList.toggle("on", state.mode === "paced");
+  $("modeMax").classList.toggle("on", state.mode === "max");
+  $("modeJit").classList.toggle("on", state.mode === "jit");
+  const pr = $("presets");
+  pr.innerHTML = "";
+  for (const k in PRESETS) {
+    const b = document.createElement("button");
+    b.className = "preset" + (state.preset === k ? " on" : "");
+    b.textContent = PRESETS[k].label;
+    b.onclick = () => { applyPreset(k); };
+    pr.appendChild(b);
+  }
+  if (state.preset) {
+    const P = PRESETS[state.preset];
+    $("presetDesc").textContent =
+      `${P.desc} Levels: ${P.railsKw.r30} kW (2030) → ${P.railsKw.r40} kW (2040) → ${P.railsKw.r55.toLocaleString("en-US")} kW (2055), linear ramp between epochs. ` +
+      `Pacing modes don't apply; editing the kW target returns to sandbox mode. Click any year column for its references and plan events.`;
+  } else {
+    $("presetDesc").textContent = state.railsKw
+      ? `Custom curve — installed power ramps ${fmt(state.railsKw.r30)} → ${fmt(state.railsKw.r40)} → ${fmt(state.railsKw.r55)} kW (2030 / 2040 / 2055). The kW box sets the 2055 level; click a scenario state to reload a full definition.`
+      : "Sandbox — set your own numbers, or click a scenario state.";
+  }
+  $("pacingSeg").style.opacity = state.demand === "curve" ? 0.35 : 1;
+  $("pacingSeg").style.pointerEvents = state.demand === "curve" ? "none" : "auto";
+  $("themeBtn").textContent = "Theme: " + state.theme;
+  const sel = $("xrefSel");
+  for (const opt of sel.options) {
+    if (PRESETS[opt.value]) {
+      opt.textContent = `${opt.value} ≈ ${landedCumulative(LANDED_RAILS[opt.value], Math.min(state.y1, 2055)).toLocaleString("en-US")} t by ${Math.min(state.y1, 2055)}`;
+    }
+  }
+  sel.value = state.xref;
+  $("xrefCustom").style.display = state.xref === "custom" ? "" : "none";
+  $("xrefCustom").value = state.xrefCustom;
+}
+
+function presetState(k) {
+  state.preset = k;
+  state.units = JSON.parse(JSON.stringify(DEFAULT_UNITS));
+  const P = PRESETS[k];
+  for (const id in P.ov) {
+    const u = state.units.find(x => x.id === id);
+    Object.assign(u, P.ov[id]);
+  }
+  state.demand = "curve";
+  state.railsKw = P.railsKw;
+  state.railsKwBase = null;
+  state.kw = P.railsKw.r55;
+  state.y0 = 2026; state.y1 = 2055;
+  state.xref = k;
+}
+function applyPreset(k) { presetState(k); update(); }
+
+function xrefBudget() {
+  if (state.xref === "custom") return Math.max(1, Number(state.xrefCustom) || 100);
+  return landedCumulative(LANDED_RAILS[state.xref], Math.min(state.y1, 2055));
+}
+
+function renderHero(p) {
+  const v = $("verdict");
+  if (p.curve) {
+    $("titleKw").textContent = fmt(state.railsKw.r55) + " kW";
+    $("heroKw").textContent = fmt(state.railsKw.r55);
+    $("heroUnitLbl").textContent = " kW by 2055";
+    $("heroWindow").textContent = `building to the scenario's epoch levels ${state.y0}–${state.y1} · ${fmtKw(p.delivered)} installed`;
+    $("heroUnits").textContent = p.totalUnits.toLocaleString("en-US");
+    $("heroMass").textContent = fmt(p.totalMass);
+    const lastMet = [...p.epochs].reverse().find(e => e.met);
+    $("heroDone").textContent = lastMet ? "level met thru " + lastMet.y : "—";
+    v.className = "verdict " + (p.feasible ? "ok" : "bad");
+    v.innerHTML = p.epochs.map(e =>
+      `${e.y} ${e.met ? "✓" : "✗"} <span style="color:var(--muted);font-weight:400">${fmt(e.got)}/${fmt(e.need)} kW</span>`
+    ).join(" · ");
+  } else {
+    $("titleKw").textContent = fmt(state.kw) + " kW";
+    $("heroKw").textContent = fmt(state.kw);
+    $("heroUnitLbl").textContent = " kW";
+    $("heroWindow").textContent = `installed ${state.y0}–${state.y1} · plan installs ${fmtKw(p.delivered)}` +
+      (p.delivered > state.kw * 1.005 ? " (overshoot: units are whole)" : "");
+    $("heroUnits").textContent = p.totalUnits.toLocaleString("en-US");
+    $("heroMass").textContent = fmt(p.totalMass);
+    $("heroDone").textContent = p.done ? p.done : "—";
+    if (p.feasible) {
+      v.className = "verdict ok";
+      v.innerHTML = "✓ fits the window" + (p.earliest ? ` <span style="color:var(--muted);font-weight:400">· earliest possible ${p.earliest}</span>` : "");
+    } else {
+      v.className = "verdict bad";
+      v.innerHTML = `✗ window max ${fmtKw(p.capWindow)} — ` + (p.earliest ? `earliest ${p.earliest} at full cadence` : `not reachable by ${Y_SCAN}`);
+    }
+  }
+  const bar = $("evBar"), key = $("evKey");
+  bar.innerHTML = ""; key.innerHTML = "";
+  const tot = Object.values(p.tierKw).reduce((a, b) => a + b, 0) || 1;
+  let worst = null;
+  for (const t of TIER_ORDER) {
+    const v2 = p.tierKw[t] || 0; if (v2 <= 0) continue;
+    const d = document.createElement("div");
+    d.style.width = (v2 / tot * 100) + "%"; d.style.background = TIER_HEX[t];
+    d.title = `${TIERS[t].label}: ${fmtKw(v2)}`;
+    bar.appendChild(d);
+    const kEl = document.createElement("span");
+    kEl.innerHTML = `<span class="chip ${t}">${TIERS[t].label}</span> ${Math.round(v2 / tot * 100)}%`;
+    key.appendChild(kEl);
+    if (t === "TARGET" || t === "ANNOUNCED" || t === "CONCEPT" || t === "SUPERSEDED") worst = { t, pct: Math.round(v2 / tot * 100) };
+  }
+  const kwLabel = p.curve ? `${fmt(state.railsKw.r55)} kW by 2055` : `${fmt(state.kw)} kW`;
+  $("evHeadline").textContent = worst
+    ? `${worst.pct}% of these kilowatts ride on ${TIERS[worst.t].label.toLowerCase()}-tier hardware — that is what "${kwLabel}" assumes.`
+    : "Share of kilowatts by evidence tier of the supplying unit:";
+
+  // landed-mass cross-check
+  const budget = xrefBudget();
+  const pct = p.totalMass / budget * 100;
+  $("xrefPct").textContent = (pct >= 10 ? Math.round(pct) : Math.round(pct * 10) / 10) + "%";
+  $("xrefBar").style.width = Math.min(100, pct) + "%";
+  $("xrefNote").textContent =
+    `Power hardware = ${fmtT(p.totalMass)} of the ${budget.toLocaleString("en-US")} t landed-mass budget (${state.xref === "custom" ? "custom" : state.xref + " cumulative 2026–" + Math.min(state.y1, 2055)}). ` +
+    `Study finding: the power rail stays a low single-digit share of cumulative landed mass in every scenario — if this bar is large, the mass budget, not the power tech, is the binding claim.`;
+}
+
+function renderEquiv() {
+  const el = $("equiv"); el.innerHTML = "";
+  const curve = state.demand === "curve" && state.railsKw;
+  const target = curve ? state.railsKw.r55 : state.kw;
+  const h2 = document.querySelector("#equiv").parentElement.querySelector("h2");
+  h2.textContent = curve ? `If the ${fmt(target)} kW level (2055) all came from one system` : "If it all came from one system";
+  for (const u of state.units) {
+    const exact = target / u.kw;
+    const n = Math.ceil(exact);
+    const card = document.createElement("div");
+    card.className = "ecard";
+    card.innerHTML =
+      `<div class="figwrap">${icon(u, Math.round(u.hm * 7))}</div>` +
+      `<div class="cnt">${n.toLocaleString("en-US")}<small> units${Number.isInteger(exact) ? "" : ` (${exact >= 100 ? exact.toFixed(0) : exact.toFixed(1)} exact)`}</small></div>` +
+      `<div class="masshl">${fmtT(n * u.mass)} landed</div>` +
+      `<div class="nm">${u.name}</div>` +
+      `<div class="meta">${fmt(u.kw)} kW · ${fmt(u.mass)} t/unit · <span class="chip ${u.tier}">${TIERS[u.tier].label}</span></div>`;
+    el.appendChild(card);
+  }
+}
+
+function renderFleet(p) {
+  const el = $("fleet"); el.innerHTML = "";
+  const unitsScale = [1, 2, 5, 10, 20, 50, 100];
+  let U = 1;
+  for (const s of unitsScale) { U = s; let n = 0; for (const u of state.units) n += Math.round((p.totals[u.id] || 0) / s); if (n <= 400) break; }
+  $("unitNote").innerHTML = U > 1
+    ? `1 icon = <b>${U}</b> units (icon counts rounded — labels are exact). Icons not to height scale here; see the system scale above.`
+    : `1 icon = 1 unit. Icons not to height scale here; see the system scale above.`;
+  const H = { lr1: 22, vsat: 22, argonaut: 14, lglite: 9, zeno: 7 };
+  for (const u of state.units) {
+    const n = p.totals[u.id] || 0;
+    const row = document.createElement("div");
+    row.className = "fleetrow";
+    const kwTot = n * u.kw, mTot = n * u.mass;
+    const share = p.delivered > 0 ? Math.round(kwTot / p.delivered * 100) : 0;
+    let grid = "";
+    if (n > 0) {
+      const icons = Math.max(1, Math.round(n / U));
+      grid = `<div class="icongrid">` + icon(u, H[u.id]).repeat(icons) + `</div>`;
+    } else {
+      grid = `<div class="zero">${u.on ? (cadence(u, state.y1) === 0 ? "not yet available in this window" : "no units needed in this plan") : "disabled"}</div>`;
+    }
+    row.innerHTML =
+      `<div class="fleethead"><span class="swatch" style="background:${unitColor(u)}"></span>` +
+      `<span class="nm">${u.name}</span><span class="chip ${u.tier}">${TIERS[u.tier].label}</span>` +
+      `<span class="n">${n.toLocaleString("en-US")} units · ${fmtKw(kwTot)} · ${fmtT(mTot)} · ${share}%</span></div>` + grid;
+    el.appendChild(row);
+  }
+  $("mixRule").textContent = {
+    paced: "Mix rule — build steadily: each year carries its capacity share of the target, so smaller blocks dominate early. “Fewest units” shows the opposite pole: wait and consolidate onto the biggest systems.",
+    max:   "Mix rule — as fast as possible: every unit type deploys at full cadence, biggest first, until the target is met (front-loaded).",
+    jit:   "Mix rule — fewest units: everything defers as late as the deadline allows, consolidating onto the biggest units available by then.",
+    curve: "Mix rule — scenario levels (adjusted from the frozen tables, 2026-07-20): installed power ramps linearly between the epoch values, so hardware deploys nearly every year; biggest unit first, final unit best-fit. Reactors land when the growing gap exceeds what the solar cadence can cover — which is why LR-1 appears near its documented date.",
+  }[p.modeUsed];
+}
+
+const SHORT = { lr1: "LR-1", vsat: "VSAT", argonaut: "Argonaut", lglite: "LunaGrid-Lite", zeno: "Zeno RPS" };
+
+function renderTimeline(p) {
+  const legend = $("tlLegend"); legend.innerHTML = "";
+  const LEGH = { lr1: 22, vsat: 26, argonaut: 15, lglite: 9, zeno: 8 };
+  for (const u of state.units) {
+    if (!u.on) continue;
+    const s = document.createElement("span");
+    s.innerHTML = `<span class="lgi">${icon(u, LEGH[u.id])}</span><b style="color:${unitColor(u)}">${u.name}</b>`;
+    legend.appendChild(s);
+  }
+  const cols = $("tlCols"), yrs = $("tlYears");
+  cols.innerHTML = ""; yrs.innerHTML = "";
+  // fit the whole window without horizontal scroll where possible
+  const colW = Math.max(34, Math.min(76, Math.floor(($("tlScroll").clientWidth - 8) / p.perYear.length)));
+  p._colW = colW;
+  const MAXICONS = 40;
+  const H = { lr1: 20, vsat: 18, argonaut: 12, lglite: 8, zeno: 6 };
+  for (const row of p.perYear) {
+    const col = document.createElement("div");
+    col.className = "tl-col"; col.tabIndex = 0;
+    col.style.width = colW + "px"; col.style.flex = "0 0 " + colW + "px";
+    let html = "", count = 0, extra = 0;
+    for (const u of state.units) {
+      const f = row.units[u.id] || 0;
+      for (let i = 0; i < f; i++) {
+        if (count < MAXICONS) html += icon(u, H[u.id]); else extra++;
+        count++;
+      }
+    }
+    let firsts = "";
+    for (const u of state.units) if (u.on && u.first === row.y) {
+      firsts += `<div style="color:${unitColor(u)}">▲ ${SHORT[u.id]}<br>first</div>`;
+    }
+    col.innerHTML = (firsts ? `<div class="firsts">${firsts}</div>` : "") +
+      (extra > 0 ? `<span class="plus">+${extra}</span>` : "") + `<div class="stack">` + html + `</div>`;
+    const tipHtml = () => {
+      let s = `<div class="t">${row.y}</div>`;
+      const n = Object.values(row.units).reduce((a, b) => a + b, 0);
+      s += `<div class="r"><span>Units</span><b>${n}</b></div>`;
+      s += `<div class="r"><span>Installed this year</span><b>${fmtKw(row.kw)}</b></div>`;
+      s += `<div class="r"><span>Cumulative</span><b>${fmtKw(row.cum)}</b></div>`;
+      s += `<div class="r"><span>Mass this year</span><b>${fmtT(row.mass)}</b></div>`;
+      for (const u of state.units) {
+        const f = row.units[u.id] || 0; if (!f) continue;
+        s += `<div class="r"><span><span class="swatch" style="background:${unitColor(u)}"></span> ${u.name}</span><b>${f}</b></div>`;
+      }
+      return s;
+    };
+    col.addEventListener("mousemove", e => showTip(tipHtml(), e.clientX, e.clientY));
+    col.addEventListener("mouseleave", hideTip);
+    col.addEventListener("focus", () => { const r = col.getBoundingClientRect(); showTip(tipHtml(), r.left, r.bottom); });
+    col.addEventListener("blur", hideTip);
+    col.addEventListener("click", () => { hideTip(); showRefs(row); });
+    col.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hideTip(); showRefs(row); } });
+    cols.appendChild(col);
+
+    const yl = document.createElement("div");
+    yl.className = "tl-year";
+    yl.style.width = colW + "px"; yl.style.flex = "0 0 " + colW + "px";
+    if (colW < 48) yl.style.fontSize = "10px";
+    yl.innerHTML = `${row.y}<span class="tons">${row.kw > 0 ? fmtKw(row.kw) + " · " + fmtT(row.mass) : "·"}</span>`;
+    yrs.appendChild(yl);
+  }
+  renderCum(p);
+}
+
+function renderCum(p) {
+  const colW = p._colW || 76, W = p.perYear.length * colW, H = 120, padT = 14, padB = 18;
+  const svg = $("cumsvg");
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const maxV = Math.max(state.kw, p.delivered) * 1.08 || 1;
+  const yv = v => H - padB - (v / maxV) * (H - padT - padB);
+  const xv = i => i * colW + colW / 2;
+  let line = "", area = `M ${xv(0)} ${yv(0)}`;
+  p.perYear.forEach((r, i) => {
+    line += (i ? " L " : "M ") + xv(i) + " " + yv(r.cum);
+    area += ` L ${xv(i)} ${yv(r.cum)}`;
+  });
+  area += ` L ${xv(p.perYear.length - 1)} ${yv(0)} Z`;
+  const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink-2").trim();
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--c-lr1").trim();
+
+  if (p.curve) {
+    // stepped dashed rail (epoch deadline levels) + epoch dots over the cumulative line
+    let rail = "", dots = "";
+    p.perYear.forEach((r, i) => {
+      rail += (i ? " L " : "M ") + xv(i) + " " + yv(r.level);
+    });
+    for (const e of p.epochs) {
+      const i = p.perYear.findIndex(r => r.y === e.y);
+      if (i < 0) continue;
+      dots += `<circle cx="${xv(i)}" cy="${yv(e.need)}" r="4" fill="${ink}" stroke="var(--surface-1)" stroke-width="1.5"/>` +
+              `<text x="${xv(i)}" y="${Math.max(11, yv(e.need) - 8)}" text-anchor="middle" font-size="10" fill="${ink}">${fmt(e.need)}</text>`;
+    }
+    svg.innerHTML =
+      `<path d="${area}" fill="${accent}" opacity="0.12"/>` +
+      `<path d="${rail}" fill="none" stroke="${ink}" stroke-width="1.4" stroke-dasharray="5 4" opacity="0.8"/>` +
+      `<path d="${line}" fill="none" stroke="${accent}" stroke-width="2"/>` +
+      dots +
+      `<text x="6" y="12" font-size="11" fill="${ink}">installed kW — solid = plan, dashed = scenario level curve (● epoch values)</text>`;
+    return;
+  }
+
+  const tgt = yv(state.kw);
+  const doneIdx = p.perYear.findIndex(r => r.cum >= state.kw - 1e-9);
+  svg.innerHTML =
+    `<path d="${area}" fill="${accent}" opacity="0.12"/>` +
+    `<path d="${line}" fill="none" stroke="${accent}" stroke-width="2"/>` +
+    `<line x1="0" y1="${tgt}" x2="${W}" y2="${tgt}" stroke="${ink}" stroke-width="1" stroke-dasharray="5 4" opacity="0.7"/>` +
+    `<text x="6" y="${tgt - 5}" font-size="11" fill="${ink}">target ${fmt(state.kw)} kW</text>` +
+    (doneIdx >= 0
+      ? `<circle cx="${xv(doneIdx)}" cy="${yv(p.perYear[doneIdx].cum)}" r="4.5" fill="${accent}" stroke="var(--surface-1)" stroke-width="2"/>` +
+        `<text x="${Math.min(xv(doneIdx) + 8, W - 90)}" y="${Math.max(12, yv(p.perYear[doneIdx].cum) - 8)}" font-size="11" font-weight="600" fill="${ink}">reached ${p.perYear[doneIdx].y}</text>`
+      : `<text x="${W - 6}" y="${yv(p.delivered) - 6}" text-anchor="end" font-size="11" font-weight="600" fill="${ink}">${fmtKw(p.delivered)} by ${state.y1} — short of target</text>`);
+}
+
+function renderTable(p) {
+  const t = $("planTable");
+  let h = "<thead><tr><th>Year</th>";
+  for (const u of state.units) h += `<th>${SHORT[u.id]}</th>`;
+  h += "<th>kW</th><th>Cumulative kW</th>" + (p.curve ? "<th>Epoch level</th>" : "") + "<th>Mass (t)</th></tr></thead><tbody>";
+  for (const r of p.perYear) {
+    h += `<tr><td>${r.y}</td>`;
+    for (const u of state.units) h += `<td>${r.units[u.id] || 0}</td>`;
+    h += `<td>${fmt(r.kw)}</td><td>${fmt(r.cum)}</td>` + (p.curve ? `<td>${fmt(r.level)}</td>` : "") + `<td>${fmt(r.mass)}</td></tr>`;
+  }
+  h += `<tr><td><b>Total</b></td>`;
+  for (const u of state.units) h += `<td><b>${p.totals[u.id] || 0}</b></td>`;
+  h += `<td><b>${fmt(p.delivered)}</b></td><td></td>` + (p.curve ? "<td></td>" : "") + `<td><b>${fmt(p.totalMass)}</b></td></tr></tbody>`;
+  t.innerHTML = h;
+}
+
+function renderAssumptions() {
+  const tb = $("assumpTable").querySelector("tbody");
+  tb.innerHTML = "";
+  for (const u of state.units) {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td class="nm"><span class="swatch" style="background:${unitColor(u)}"></span> ${u.name}</td>` +
+      `<td style="text-align:center"><input type="checkbox" ${u.on ? "checked" : ""} data-id="${u.id}" data-f="on" aria-label="Enable ${u.name}"></td>` +
+      `<td><input type="number" step="1" min="1" value="${u.kw}" data-id="${u.id}" data-f="kw"></td>` +
+      `<td><input type="number" step="0.05" min="0.05" value="${u.mass}" data-id="${u.id}" data-f="mass"></td>` +
+      `<td><input type="number" step="1" min="${Y_MIN}" max="${Y_MAX}" value="${u.first}" data-id="${u.id}" data-f="first"></td>` +
+      `<td><input type="number" step="1" min="1" max="60" value="${u.max}" data-id="${u.id}" data-f="max"></td>` +
+      `<td><input type="number" step="1" min="1" max="15" value="${u.rampYears}" data-id="${u.id}" data-f="rampYears"></td>` +
+      `<td style="text-align:left"><span class="chip ${u.tier}">${TIERS[u.tier].label}</span></td>` +
+      `<td class="note">${u.note}</td>`;
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const u = state.units.find(x => x.id === inp.dataset.id);
+      if (inp.dataset.f === "on") u.on = inp.checked;
+      else u[inp.dataset.f] = Number(inp.value);
+      state.preset = null;
+      update(false);
+    });
+  });
+  $("provText").innerHTML =
+    `<b>Documented-plan roster only</b> (re-verified 2026-07-20): every row is an element of the NASA Moon Base / Artemis program of record or ESA's Argonaut — LR-1 (NASA–DOE MOU 2026-01-13, directive 2025-08-04: ≥100 kWe, ≤15 t; NSTM-3 2026-04-14 hedge: mid-power ≥20 kWe, ≤2 designs by Apr 2027), VSAT (NASA TM-20210011743 10 kW/~120 kg; Astrobotic/Redwire + Honeybee LAMPS both TRL-6; LEIA BAA awards Q1 FY27), LunaGrid-Lite ($34.6M Tipping Point, 500 m/4U as-built), Zeno Harmonia RPS ($15M Tipping Point + ACO, FDR 2026-04), ESA Argonaut M1 power package (contracted, numbers unpublished). The superseded 2022 FSP 40 kWe quantum was removed 2026-07-21 (its role is covered by LR-1 under the adjusted levels). ` +
+    `Deliberately NOT modeled (study-money, concepts, or no published kW/mass): VSAT-XL (50 kW SBIR target, no mass), Kilopower flight design, MW-class vendor concepts, Blue Alchemist regolith-PV, laser power beaming (Lockheed ACO unfunded SAA; Star Catcher/IM demo), DARPA LunA-10 concepts (LUNARSABER etc.), Honda–Astrobotic RFC (JDA only). ` +
+    `Storage honesty: VSAT rows are array-only at >~90%-lit polar sites — the plan documents no night-storage element yet (the Honda RFC JDA is the announced path); reference constants if you add one: 10 kWe continuous ≈ 1.7 t with RFC (analysis) to 9.2 t with flown Li-ion (Colozza NASA/CR-2020-220368). ` +
+    `Watch item: the SR-1/LR-1 integrated program plan (due ~2026-07-21) was not public as of 2026-07-20 — re-verify the LR-1 date, power floor, and contractor when it lands. This page is a sandbox for visualizing assumptions, not a source.`;
+}
+
+/* ================= update loop ================= */
+
+function update(reAssump = true) {
+  if (state.y1 < state.y0) state.y1 = state.y0;
+  const p = computePlan();
+  renderControls();
+  renderHero(p);
+  renderEquiv();
+  renderFleet(p);
+  renderTimeline(p);
+  renderTable(p);
+  if (reAssump) renderAssumptions();
+  save();
+  window._plan = p;
+}
+
+/* ================= events ================= */
+
+function setAnnual(M) {
+  state.preset = null;
+  state.demand = "curve";
+  if (!state.railsKwBase) {
+    state.railsKwBase = state.railsKw && state.railsKw.r55
+      ? { r30: state.railsKw.r30, r40: state.railsKw.r40 }
+      : { r30: 10, r40: Math.max(10, Math.round(M / 4)) };
+  }
+  const b = state.railsKwBase;
+  const r40 = Math.min(b.r40, M), r30 = Math.min(b.r30, r40);
+  state.railsKw = { r30, r40, r55: M };
+  state.kw = M;
+}
+$("kw").addEventListener("change", e => { setAnnual(Math.max(1, Number(e.target.value) || 400)); update(); });
+$("kwSlider").addEventListener("input", e => {
+  const v = Math.round(Math.pow(10, e.target.value / 100 * 4));
+  setAnnual(Math.max(1, v));
+  $("kw").value = state.kw;
+  update();
+});
+$("y0").addEventListener("change", e => { state.y0 = Number(e.target.value); update(); });
+$("y1").addEventListener("change", e => { state.y1 = Number(e.target.value); update(); });
+$("modePaced").addEventListener("click", () => { state.mode = "paced"; update(); });
+$("modeMax").addEventListener("click", () => { state.mode = "max"; update(); });
+$("modeJit").addEventListener("click", () => { state.mode = "jit"; update(); });
+$("xrefSel").addEventListener("change", e => { state.xref = e.target.value; update(false); });
+$("xrefCustom").addEventListener("change", e => { state.xrefCustom = Number(e.target.value) || 100; update(false); });
+$("resetBtn").addEventListener("click", () => {
+  state = { kw: 400, y0: 2026, y1: 2055, mode: "paced", preset: null, theme: state.theme,
+            demand: "curve", railsKw: { r30: 10, r40: 100, r55: 400 }, railsKwBase: null,
+            xref: "S1", xrefCustom: 100,
+            units: JSON.parse(JSON.stringify(DEFAULT_UNITS)) };
+  update();
+});
+$("copyBtn").addEventListener("click", e => {
+  e.preventDefault(); e.stopPropagation();
+  const p = window._plan; if (!p) return;
+  let s = "Year\t" + state.units.map(u => u.name).join("\t") + "\tkW\tCumulative kW\tMass t\n";
+  for (const r of p.perYear) s += r.y + "\t" + state.units.map(u => r.units[u.id] || 0).join("\t") + "\t" + r.kw.toFixed(1) + "\t" + r.cum.toFixed(1) + "\t" + r.mass.toFixed(2) + "\n";
+  navigator.clipboard.writeText(s);
+  e.target.textContent = "Copied ✓";
+  setTimeout(() => e.target.textContent = "Copy TSV", 1500);
+});
+$("themeBtn").addEventListener("click", () => {
+  state.theme = state.theme === "auto" ? "light" : state.theme === "light" ? "dark" : "auto";
+  applyTheme(); update(false);
+});
+function applyTheme() {
+  const r = document.documentElement;
+  if (state.theme === "auto") r.removeAttribute("data-theme");
+  else r.setAttribute("data-theme", state.theme);
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") { hideTip(); $("refpanel").style.display = "none"; } });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => update(false));
+let _rsz; addEventListener("resize", () => { clearTimeout(_rsz); _rsz = setTimeout(() => update(false), 200); });
+
+const qsp = new URLSearchParams(location.search);
+const qsTheme = qsp.get("theme");
+if (qsTheme === "light" || qsTheme === "dark") state.theme = qsTheme;
+if (["paced","max","jit"].includes(qsp.get("mode"))) state.mode = qsp.get("mode");
+if (PRESETS[qsp.get("preset")]) presetState(qsp.get("preset"));
+applyTheme();
+update();
+const refYear = Number(qsp.get("refyear"));
+if (refYear) {
+  const row = window._plan && window._plan.perYear.find(r => r.y === refYear);
+  if (row) showRefs(row);
+}
+</script>
+</body>
+</html>
